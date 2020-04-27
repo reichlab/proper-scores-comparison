@@ -1,0 +1,393 @@
+---
+title: "scores simulation study"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set up and utility functions for scoring
+
+```{r}
+library(scoringRules)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+```
+
+```{r}
+#' Calculate interval score
+#' 
+#' @param y vector of observations from target distribution
+#' @param l lower bound of predictive distribution
+#' @param u upper bound of predictive distribution
+#' @param alpha the interval [l,u] is a (1 - alpha)*100% predictive interval
+#'
+#' @return vector of interval scores separately for each element of x
+interval_score <- function(y, l, u, alpha) {
+  if(length(l) > 1 || length(u) > 1 || l > u) {
+    stop("[l, u] must specify a single predictive interval.")
+  }
+  
+  if(length(alpha) > 1 || alpha < 0.0 || alpha > 1.0) {
+    stop("alpha must be a single number between 0 and 1.")
+  }
+  
+  score = (u - l) +
+    ifelse(y < l, 2.0/alpha * (l - y), 0.0) +
+    ifelse(y > u, 2.0/alpha * (y - u), 0.0)
+  
+  return(score)
+}
+
+
+#' Calculate quantile score, optionally including absolute error,
+#' for a parametric distribution.
+#' 
+#' @param y vector of observations from target distribution
+#' @param alphas vector of alphas.  the score is based on several
+#'   (1 - alpha)*100% predictive intervals for each alpha in alphas
+#' @param ae logical.  If true, include absolute error in score
+#' @param family family for distribution; e.g. 'norm' or 'nbinom'
+#' @param args list of arguments for quantile function of parametric family,
+#'   e.g. list(mean=0.0, sd=1.0)
+#'
+#' @return vector of interval scores separately for each element of x
+quantile_score_parametric_dist <- function(y, alphas, ae, family, args) {
+  # name of function to compute quantiles
+  qfun <- paste0('q', family)
+  
+  # initialize score to 0
+  score = rep(0.0, length(y))
+  
+  # interval scores for each alpha
+  for(alpha in alphas) {
+    args$p <- c(alpha/2, 1-alpha/2)
+    interval <- do.call(qfun, args = args)
+    score = score + interval_score(y, interval[1], interval[2], alpha)
+  }
+  
+  # optionall add ae score
+  if(ae) {
+    args$p <- 0.5
+    m <- do.call(qfun, args = args)
+    score = score + abs(y - m)
+  }
+
+  return(score)
+}
+
+
+#' Create a list of score functions to evaluate
+#'
+#' @param family family for distribution; e.g. 'norm' or 'nbinom'
+#' @param quantile_score_args list of lists of arguments alphas and ae for
+#'   the quantile_score_parametric_dist function.  For example, 
+#'   \code{list(list(alpha=c(0.05, 0.2), ae=FALSE), list(alpha=0.2, ae=TRUE))}
+#'   will create two quantile score functions: the first based on a combination
+#'   of interval scores from 95% and 80% predictive intervals without absolute
+#'   error, and the second based on an 80% predictive interval with absolute
+#'   error.
+#'
+#' @return named list of score functions.  Each function in the list has
+#'   arguments y and family-specific arguments such as mean and sd.
+assemble_score_functions <- function(family, quantile_score_args) {
+  continuous_scores <- list(
+    exact_crps = function(y, args) {
+      args$y <- y
+      do.call(
+        get(paste0('crps_', family), asNamespace('scoringRules')),
+        args
+      )
+    },
+    exact_logs = function(y, args) {
+      args$y <- y
+      do.call(
+        get(paste0('logs_', family), asNamespace('scoringRules')),
+        args
+      )
+    }
+  )
+  
+  quantile_scores <- purrr::map(quantile_score_args, function(qs_arg) {
+    alphas <- qs_arg$alpha
+    ae <- qs_arg$ae
+    
+    qs_name <- paste0('qs_', paste0(alphas, collapse="_"))
+    if(ae) {
+      qs_name <- paste0('ae_', qs_name)
+    }
+    
+    result <- list(
+      function(y, args) {
+        quantile_score_parametric_dist(
+          y=y,
+          alphas=alphas,
+          ae=ae,
+          family=family,
+          args=args)
+      }
+    )
+    
+    names(result) <- qs_name
+
+    return(result)
+  }) %>%
+    unlist(recursive=FALSE)
+
+  return(c(continuous_scores, quantile_scores))
+}
+
+```
+
+# Conditions for study
+
+```{r}
+# families of target distribution: normal and negative binomial
+families <- c("norm", "nbinom")
+
+# static distribution or time-varying (dynamic); currently only static
+settings <- "static"
+
+# models to compare, specified as a list of relative location and scale
+# parameters, relative to the data generating process.
+# c(0.0, 1.0) means same location and scale as the data generating process.
+# The location is specified as bias in units of standard deviations of the
+# data generating process.
+# 
+# We consider:
+#  * DGP
+#  * wide has variance = 1.5 times variance of DGP
+#  * narrow has variance = 0.5 times variance of DGP
+#  * bias_wide has variance = 1.5 times variance of DGP
+models <- list(
+  DGP = c(0.0, 1.0),
+  wide = c(0.0, sqrt(1.5)),
+  narrow = c(0.0, sqrt(0.5)),
+  bias_wide = c(0.2, sqrt(1.5))
+)
+
+# DGP mean and standard deviation for static setting
+dgp_mean <- 100
+dgp_var <- 150
+```
+
+Function to map model specifications above to family-specific arguments.
+
+```{r}
+models_to_family_args <- function(dgp_mean, dgp_var, models, family) {
+  family_args <- lapply(models, function(model_adj) {
+    model_mean <- dgp_mean + model_adj[1]*sqrt(dgp_var)
+    model_var <- model_adj[2] * dgp_var
+    if(family == 'norm') {
+      return(list(
+        mean = model_mean,
+        sd = sqrt(model_var)
+      ))
+    } else if(family == 'nbinom') {
+      return(list(
+        mu = model_mean,
+        size = (model_mean^2)/(model_var - model_mean)
+      ))
+    } else {
+      stop('invalid family')
+    }
+  })
+  names(family_args) <- names(models)
+  
+  return(family_args)
+}
+```
+
+Here are tables of the parameter values for the distributions we're considering:
+
+```{r}
+norm_model_args <- models_to_family_args(
+  dgp_mean, dgp_var, models, family='norm'
+)
+purrr::map_dfr(norm_model_args, as.data.frame) %>%
+  mutate(model = names(models))
+```
+
+```{r}
+nbinom_model_args <- models_to_family_args(
+  dgp_mean, dgp_var, models, family='nbinom'
+)
+purrr::map_dfr(nbinom_model_args, as.data.frame) %>%
+  mutate(model = names(models))
+```
+
+Here are some plots of the distributions we're considering:
+
+```{r}
+x_grid <- seq(from = 0, to = 200, length = 201)
+
+to_plot <- purrr::map_dfr(
+  families,
+  function(family) {
+    model_args <- models_to_family_args(dgp_mean, dgp_var, models, family)
+    
+    dfun <- paste0('d', family)
+    
+    return(
+      purrr::map_dfr(
+        seq_along(models),
+        function(i) {
+          data.frame(
+            x = x_grid,
+            density = do.call(dfun, c(list(x=x_grid), model_args[[i]])),
+            family = family,
+            model = names(models)[i],
+            stringsAsFactors = FALSE
+          )
+        }
+      )
+    )
+  }
+)
+
+ggplot(
+  data=to_plot,
+  mapping=aes(x=x, y=density, color=model, linetype=model)) +
+  geom_line() +
+  facet_wrap( ~ family, ncol=1, scales='free_y') +
+  theme_bw()
+```
+
+Double checking I got the formulas right for adjustments to mean and variances by sampling.
+
+```{r}
+model_family_samples <- purrr::map_dfr(
+  families,
+  function(family) {
+    model_args <- models_to_family_args(dgp_mean, dgp_var, models, family)
+    
+    rfun <- paste0('r', family)
+    
+    return(
+      purrr::map_dfr(
+        seq_along(models),
+        function(i) {
+          data.frame(
+            x = do.call(rfun, c(list(n=10000), model_args[[i]])),
+            family = family,
+            model = names(models)[i],
+            stringsAsFactors = FALSE
+          )
+        }
+      )
+    )
+  }
+)
+
+model_family_samples %>%
+  group_by(family, model) %>%
+  summarize(
+    sample_mean = mean(x),
+    sample_var = var(x)
+  )
+```
+
+# Scores to calculate
+
+```{r}
+quantile_score_args <- list(
+  list(alphas = 0.05, ae = FALSE),
+  list(alphas = 0.05, ae = TRUE),
+  list(alphas = 0.2, ae = FALSE),
+  list(alphas = 0.2, ae = TRUE),
+  list(alphas = c(0.2, 0.05), ae = FALSE),
+  list(alphas = c(0.2, 0.05), ae = TRUE)
+)
+```
+
+# Study
+
+
+
+```{r}
+#' Perform simulation study for one combination of settings
+#' Currently handles only static settings
+#'
+#' @param n_sim number of simulations to conduct
+#' @param family family of target distribution
+#' @param setting currently only 'static' supported
+#' @param models list of lists with model offset parameters from dgp
+#'
+#' @returns data frame with scores for one combination of family and setting,
+#'   all combinations of models and score functions
+sim_results_one_combo <- function(
+  n,
+  family,
+  setting = 'static',
+  models) {
+  if(!identical(setting, 'static')) {
+    stop("only static setting implemented")
+  }
+  
+  # scoring functions
+  score_functions <- assemble_score_functions(family, quantile_score_args)
+  
+  # parameters for each model
+  model_args <- models_to_family_args(dgp_mean, dgp_var, models, family)
+  
+  # generate data from dgp
+  rfun <- paste0('r', family)
+  y <- do.call(rfun, c(list(n=10000), model_args[[1]]))
+  
+  # calculate scores for all models and all scoring functions
+  all_scores <- purrr::pmap_dfr(
+    expand.grid(
+      model_name=names(models),
+      score_name=names(score_functions)
+    ),
+    function(model_name, score_name) {
+      data.frame(
+        family=family,
+        setting=setting,
+        i=seq_along(y),
+        model_name = model_name,
+        score_name = score_name,
+        score = do.call(
+          score_functions[[score_name]],
+          args = list(y = y, args = model_args[[model_name]])
+        ),
+        stringsAsFactors = FALSE
+      )
+    }
+  )
+  
+  return(all_scores)
+}
+
+sim_combos <- expand.grid(family=families, setting=settings, stringsAsFactors=FALSE)
+sim_results <- purrr::pmap_dfr(sim_combos, sim_results_one_combo, n = 1000,models = models)
+```
+
+# Summaries
+
+```{r}
+mean_scores <- sim_results %>%
+  group_by(family, setting, model_name, score_name) %>%
+  summarize(mean_score = mean(score))
+
+mean_scores %>%
+  tidyr::pivot_wider(names_from = 'model_name', values_from = 'mean_score')
+```
+
+```{r}
+ggplot(data = mean_scores, mapping = aes(x = score_name, y = mean_score, color = model_name, linetype = model_name, group=model_name)) +
+  geom_line() +
+  facet_wrap( ~ family, ncol = 1) +
+  theme_bw()
+```
+
+```{r}
+ggplot(data = mean_scores %>% filter(mean_score < 1000),
+       mapping = aes(x = score_name, y = mean_score, color = model_name, linetype = model_name, group=model_name)) +
+  geom_line() +
+  facet_wrap( ~ family, ncol = 1) +
+  theme_bw()
+```
+
