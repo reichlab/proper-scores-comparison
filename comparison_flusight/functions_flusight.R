@@ -1,3 +1,6 @@
+# Functions to handle FluSight forecasts
+# Johannes Bracher, johannes.bracher@kit.edu, May 2020
+
 #' custom function to get FluSight forecasts for a given location and target
 #'
 #' @param model the name of the model (name of the subfolder in which forecasts are stored)
@@ -109,40 +112,111 @@ overview_files <- function(filenames){
   overview
 }
 
-# evaluate log score
 
-#' @param
+#'
+#' # evaluate the median-and-interval score
+#'
+#' #' @param dens a vector of probabilities
+#' #' @param observed the observed value
+#' #' @alpha evaluation is based on (1 - alpha)x100% PI
+#' #' @param support the support underlying the probabilities in dens
+#' #'
+#' #' @return a named list containing the score, alpha, lower and upper end of PI,
+#' #' median, observed value, absolute error, width of PI and penalty term
+#'
+#' median_and_interval_score <- function(dens, support, observed, alpha, include_ae = TRUE){
+#'   # get quantiles:
+#'   l <- support[min(which(cumsum(dens) >= alpha/2))]
+#'   m <- support[min(which(cumsum(dens) > 0.5))]
+#'   u <- support[min(which(cumsum(dens) > 1 - alpha/2))]
+#'
+#'   abs_error <- abs(observed - m)
+#'   width_pi <- (u - l)
+#'   penalty <- 2/alpha*pmax(0, observed - u) - 2/alpha*pmin(0, observed - l)
+#'   score <-  as.numeric(include_ae)*2*abs_error + width_pi + penalty
+#'
+#'   return(list(score = score,
+#'               alpha = alpha,
+#'               l = l,
+#'               m = m,
+#'               u = u,
+#'               observed = observed,
+#'               abs_error = abs_error,
+#'               width_pi = width_pi,
+#'               penalty = penalty))
+#' }
 
-# evaluate the median-and-interval score
+#' helper function: get quantile from density
+#'
+#' @param dens the density, i.e. a vector containing probabilities (which sum up to 1)
+#' @param support the support of the distribution (i.e. dens[1] = Pr(X = support[1]) etc)
+#' @param p probabilities for which to return quantiles
+quantile_from_dens <- function(dens, support, p){
+  sapply(p, function(p) support[min(which(cumsum(dens) >= p))])
+}
+
+#' evaluate the CRPS:
+#'
+#' @param dens a vector of probabilities
+#' @param observed the observed value
+#' @param support the support underlying the probabilities in dens
+#'
+#' @return the CRPS
+crps <- function(dens, support, observed){
+  cdf <- cumsum(dens)
+  cdf_truth <- as.numeric(support >= observed)
+  crps <- sum((cdf - cdf_truth)^2)*0.1 # 0.1 is the bin width
+  return(crps)
+}
+
+# evaluate the mean interval score
 
 #' @param dens a vector of probabilities
 #' @param observed the observed value
-#' @alpha evaluation is based on (1 - alpha)x100% PI
+#' @alpha a vector of probabilities. Evaluation is based on the central (1 - alpha)x100% PIs
 #' @param support the support underlying the probabilities in dens
+#' @param detailed Should a more detailed result be returned?
 #'
-#' @return a named list containing the score, alpha, lower and upper end of PI,
-#' median, observed value, absolute error, width of PI and penalty term
+#' @return a named list containing the score, penalty terms and widths of PI. If detailed == TRUE
+#' also split up by alpha value
+averaged_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1), detailed = FALSE){
+  alpha_half <- alpha/2
+  one_m_alpha_half <- 1 - alpha/2
 
-miScore <- function(dens, support, observed, alpha, include_ae = TRUE){
-  # get quantiles:
-  l <- support[min(which(cumsum(dens) >= alpha/2))]
-  m <- support[min(which(cumsum(dens) > 0.5))]
-  u <- support[min(which(cumsum(dens) > 1 - alpha/2))]
+  # compute relevant quantiles:
+  m <- quantile_from_dens(dens, support, 0.5)
+  l <- quantile_from_dens(dens, support, alpha_half)
+  u <- quantile_from_dens(dens, support, one_m_alpha_half)
 
-  abs_error <- abs(observed - m)
-  width_pi <- (u - l)
-  penalty <- 2/alpha*pmax(0, observed - u) - 2/alpha*pmin(0, observed - l)
-  score <-  abs_error + width_pi + penalty
+  # compute widths of prediction intervals:
+  widths_pi <- u - l
 
-  return(list(score = score,
-              alpha = alpha,
-              l = l,
-              m = m,
-              u = u,
-              observed = observed,
-              abs_error = abs_error,
-              width_pi = width_pi,
-              penalty = penalty))
+  # compute penalties:
+  penalties <- 2/alpha*pmax(0, observed - u) - 2/alpha*pmin(0, observed - l)
+
+  # compute interval scores at different levels:
+  interval_scores <- widths_pi + penalties
+
+  # name vectors
+  names(l) <- names(u) <- names(widths_pi) <- names(penalties) <- names(interval_scores) <-
+    names(alpha) <- names(alpha_half) <- names(one_m_alpha_half) <- paste0("alpha.", alpha)
+
+  # compute combined score:
+  averaged_penalty <- mean(penalties)
+  averaged_width_pi <- mean(widths_pi)
+  averaged_interval_score <- mean(interval_scores)
+
+  if(detailed){
+    return(list(
+      l = l, u = u, observed = observed,
+      width_pi = widths_pi, penalty = penalties, interval_score = interval_scores,
+      averaged_penalty = averaged_penalty, averaged_width_pi = averaged_width_pi,
+      averaged_interval_score = averaged_interval_score
+    ))
+  }else{
+    list(averaged_penalty = averaged_penalty, averaged_width_pi = averaged_width_pi,
+         averaged_interval_score = averaged_interval_score)
+  }
 }
 
 # evaluate the logarithmic score
@@ -152,27 +226,54 @@ miScore <- function(dens, support, observed, alpha, include_ae = TRUE){
 #' @param support the support underlying the probabilities in dens
 #' @param tolerance tolerance if used in multi-bin version
 #' (0 for usual log score, 5 for multi-bin version applied to week-ahead targets)
-#' @param truncate should scores be truncated at -10?
-logScore <- function(dens, observed, support, truncate = TRUE, tolerance = 0){
+#' @param truncate value at which log scores are truncated
+log_score <- function(dens, observed, support, truncate = -10, tolerance = 0){
   inds_correct <- seq(from = which(support == observed) - tolerance,
                       to = which(support == observed) + tolerance, by = 1)
   inds_correct <- inds_correct[inds_correct > 0]
   logS <- log(sum(dens[inds_correct]))
   if(truncate){
-    return(max(-10, logS))
+    return(max(truncate, logS))
   }else{
     return(logS)
   }
 }
 
-#' Wrapper function to evaluate logS, MBlogS (with tolerance 5 bins), MIS for a list
-#' as returned by get_forecasts
+
+#'
+#' #' Wrapper function to evaluate median_and_interval_score for all rows of a forecast data.frame
+#' #'
+#' #' @param fc the forecast list as returned by get_forecasts
+#' #' @param miS.alpha The CI used in the median_and_interval_score is a (1 - mis.alpha)x100% interval
+#' #'
+#' #' @return a data.frame containing various information on the forecasts and the median_and_interval_scores
+#' median_and_interval_score_table <- function(fc, miS.alpha, include_ae = TRUE){
+#'   results <- data.frame(model = fc$model,
+#'                         location = fc$location,
+#'                         season = fc$season,
+#'                         year = fc$year,
+#'                         week = fc$week,
+#'                         target = fc$target,
+#'                         truth = fc$truth)
+#'
+#'   for(i in 1:nrow(fc$forecast)){
+#'     miS_temp <- median_and_interval_score(dens = fc$forecast[i, ], observed = fc$truth[i],
+#'                         alpha = miS.alpha, support = fc$support, include_ae = include_ae)
+#'     results[i, c("miS.alpha", "miS.l", "miS.m", "miS.u", "miS.abs_error",
+#'                  "miS.width_pi", "miS.penalty", "miS")] <-
+#'       unlist(miS_temp)[c("alpha", "l", "m", "u", "abs_error",
+#'                          "width_pi", "penalty", "score")]
+#'   }
+#'   return(results)
+#' }
+
+#' Wrapper function to evaluate crps for all rows of a forecast data.frame
 #'
 #' @param fc the forecast list as returned by get_forecasts
-#' @param mis.alpha The CI used in the MIS is a (1 - mis.alpha)x100% interval
-#' @param logS.truncate Should logS and MBlogS be truncated at -10?
-#' @param MBlogS.tolerance the tolerance (in bins) for the MBlogS
-score_forecasts <- function(fc, miS.alpha, logS.truncate = TRUE, MBlogS.tolerance = 5){
+#'
+#' @return a data.frame containing various information on the forecasts and the crps
+
+crps_table <- function(fc){
   results <- data.frame(model = fc$model,
                         location = fc$location,
                         season = fc$season,
@@ -180,31 +281,74 @@ score_forecasts <- function(fc, miS.alpha, logS.truncate = TRUE, MBlogS.toleranc
                         week = fc$week,
                         target = fc$target,
                         truth = fc$truth,
-                        logS = NA,
-                        MBlogS = NA,
-                        miS.alpha = NA,
-                        miS.l = NA,
-                        miS.m = NA,
-                        miS.u = NA,
-                        miS.abs_error = NA,
-                        miS.width_pi = NA,
-                        miS.penalty = NA,
-                        miS = NA)
+                        crps = NA)
 
   for(i in 1:nrow(fc$forecast)){
-    results$logS[i] <- logScore(dens = fc$forecast[i, ], observed = fc$truth[i],
-                                support = fc$support, tolerance = 0,
-                                truncate = logS.truncate)
-    results$MBlogS[i] <- logScore(dens = fc$forecast[i, ], observed = fc$truth[i],
-                                  support = fc$support, tolerance = 5,
-                                  truncate = logS.truncate)
+    results$crps[i] <- crps(dens = fc$forecast[i, ], observed = fc$truth[i],
+                            support = fc$support)
+  }
+  return(results)
+}
 
-    miS_temp <- miScore(dens = fc$forecast[i, ], observed = fc$truth[i],
-                        alpha = miS.alpha, support = fc$support)
-    results[i, c("miS.alpha", "miS.l", "miS.m", "miS.u", "miS.abs_error",
-                 "miS.width_pi", "miS.penalty", "miS")] <-
-      unlist(miS_temp)[c("alpha", "l", "m", "u", "abs_error",
-                         "width_pi", "penalty", "score")]
+#' Wrapper function to evaluate logS for all rows of a forecast data.frame
+#'
+#' @param fc the forecast list as returned by get_forecasts
+#' @param truncate Should logS and MBlogS be truncated at -10?
+#' @param tolerance the tolerance (in bins) for the MBlogS
+#'
+#' @return a data.frame containing various information on the forecasts and the logS
+
+log_score_table <- function(fc, truncate = -10, tolerance = 0){
+  results <- data.frame(model = fc$model,
+                        location = fc$location,
+                        season = fc$season,
+                        year = fc$year,
+                        week = fc$week,
+                        target = fc$target,
+                        truth = fc$truth,
+                        logS.tolerance = tolerance,
+                        logS.truncate = truncate,
+                        logS = NA)
+
+  for(i in 1:nrow(fc$forecast)){
+    results$logS[i] <- log_score(dens = fc$forecast[i, ], observed = fc$truth[i],
+                                support = fc$support, tolerance = tolerance,
+                                truncate = truncate)
+  }
+  return(results)
+}
+
+
+
+#' Wrapper function to evaluate averaged_interval score for all rows of a forecast data.frame
+#'
+#' @param fc the forecast list as returned by get_forecasts
+#' @param alpha a vector pf probabilities. The score the average of the interval
+#' score of the (1 - alpha)x100% prediction intervals
+#'
+#' @return a data.frame containing various information on the forecasts and the averaged_and_interval_score
+#'
+averaged_interval_score_table <- function(fc, alpha = c(0.1, 0.2, 0.5, 1), detailed = FALSE){
+  results <- data.frame(model = fc$model,
+                        location = fc$location,
+                        season = fc$season,
+                        year = fc$year,
+                        week = fc$week,
+                        target = fc$target,
+                        truth = fc$truth)
+
+  # evaluate for first row and initialize columns:
+  temp <- averaged_interval_score(dens = fc$forecast[1, ],  support = fc$support,
+                              observed = fc$truth[1], alpha = alpha, detailed = detailed)
+  results[, names(unlist(temp))] <- NA
+  results[1 , names(unlist(temp))] <- unlist(temp)
+
+
+  # evaluate remaining rows:
+  for(i in 2:nrow(fc$forecast)){
+    temp <- averaged_interval_score(dens = fc$forecast[i, ],  support = fc$support,
+                                observed = fc$truth[i], alpha = alpha, detailed = detailed)
+    results[i, names(unlist(temp))] <- unlist(temp)
   }
   return(results)
 }
@@ -229,7 +373,7 @@ extract_weeks_evaluated <- function(target_bounds, season, location, target){
 #' Compute an averge score from return object of score_forecast
 #'
 #' @param tab_scores a table containing scores, as returned by score_forecast
-#' @param score th ename of the score (from c("logS", "MBlogS", "miS"))
+#' @param score the name of the score for wich to obtain a summary
 #'
 #' @return  vector of average scores per target
 summarize_scores <- function(tab_scores, score){
