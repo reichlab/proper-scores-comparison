@@ -24,14 +24,23 @@ sarima <- get_forecasts(model = "ReichLab_sarima_seasonal_difference_TRUE",
                       season = "2016/2017")
 
 # perform scoring:
-scores_kcde_0.2 <- averaged_interval_score_table(kcde, alpha = c(0.2), detailed = TRUE)
-scores_sarima_0.2 <- averaged_interval_score_table(sarima, alpha = c(0.2), detailed = TRUE)
+scores_kcde_0.2 <- weighted_interval_score_table(kcde, alpha = c(0.2), weights = 1, detailed = TRUE)
+scores_sarima_0.2 <- weighted_interval_score_table(sarima, alpha = c(0.2), weights = 1, detailed = TRUE)
 
-scores_kcde_0.2_1 <- averaged_interval_score_table(kcde, alpha = c(0.2, 1), detailed = TRUE)
-scores_sarima_0.2_1 <- averaged_interval_score_table(sarima, alpha = c(0.2, 1), detailed = TRUE)
+scores_kcde_0.2_1 <- weighted_interval_score_table(kcde, alpha = c(0.2, 1), weights = rep(1, 2), detailed = TRUE)
+scores_sarima_0.2_1 <- weighted_interval_score_table(sarima, alpha = c(0.2, 1), weights = rep(1, 2), detailed = TRUE)
 
-scores_kcde_detailed <- averaged_interval_score_table(kcde, alpha = c(0.02, 0.05, 1:9/10), detailed = TRUE)
-scores_sarima_detailed <- averaged_interval_score_table(sarima, alpha = c(0.02, 0.05, 1:9/10), detailed = TRUE)
+alpha_detailed <- c(0.02, 0.05, 1:9/10)
+
+scores_kcde_detailed_u <- weighted_interval_score_table(kcde, alpha = alpha_detailed,
+                                                        weights = rep(1, length(alpha_detailed)), detailed = TRUE)
+scores_sarima_detailed_u <- weighted_interval_score_table(sarima, alpha = alpha_detailed,
+                                                          weights = rep(1, length(alpha_detailed)), detailed = TRUE)
+
+scores_kcde_detailed_w <- weighted_interval_score_table(kcde, alpha = alpha_detailed,
+                                                        weights = alpha_detailed, detailed = TRUE)
+scores_sarima_detailed_w <- weighted_interval_score_table(sarima, alpha = alpha_detailed,
+                                                          weights = alpha_detailed, detailed = TRUE)
 
 
 # plotting functions:
@@ -45,10 +54,10 @@ plot_ais_0.2_1 <- function(fc, ylim = c(0, max(fc$ais)), ylab = expression(AIS[l
 }
 
 plot_ais <- function(fc, ylim = c(0, max(fc$ais)), ylab = "AIS", ...){
-  plot(0.5*(fc$averaged_interval_score),
+  plot(0.5*(fc$weighted_interval_score),
        xlab = "week of season", lwd = 2, type = "h",
        col = "red", ylim = ylim, ylab = ylab, ...)
-  points(0.5*(fc$averaged_width_pi), lwd = 2, type = "h", col = "royalblue1")
+  points(0.5*(fc$weighted_width_pi), lwd = 2, type = "h", col = "royalblue1")
   abline(h = 0)
 }
 
@@ -69,7 +78,7 @@ layout(matrix(c(rep(1, 3), rep(2, 3), rep(3, 2),
 # plot_ais_0.2_1(scores_kcde_0.2_1, ylim = c(0, 5), main = "KCDE")
 # plot_ais_0.2_1(scores_sarima_0.2_1, ylim = c(0, 5), main = "SARIMA")
 #
-# plot(c(mean(scores_kcde_0.2_1$averaged_interval_score), mean(scores_sarima_0.2_1$averaged_interval_score)), type = "h",
+# plot(c(mean(scores_kcde_0.2_1$weighted_interval_score), mean(scores_sarima_0.2_1$weighted_interval_score)), type = "h",
 #      ylim = c(0, 3), xlim = c(0.5, 2.5), axes = FALSE,
 #      ylab = expression(average~AIS[list(0, 0.2)]),
 #      col = "red", lwd = 2, xlab = "")
@@ -92,14 +101,14 @@ legend("top", legend = c("penalty for non-coverage of 80% PI", "width of 80% PI"
        col = c("red", "royalblue1"), lwd = 2, bty = "n", cex = 1)
 plot_ais(scores_sarima_0.2, ylim = c(0, 3), ylab = expression(IS[0.2]))
 
-plot(c(mean(scores_kcde_0.2$averaged_interval_score), mean(scores_sarima_0.2$averaged_interval_score)), type = "h",
+plot(c(mean(scores_kcde_0.2$weighted_interval_score), mean(scores_sarima_0.2$weighted_interval_score)), type = "h",
      ylim = c(0, 1.5), xlim = c(0.5, 2.5), axes = FALSE,
      ylab = expression(average~IS[0.2]),
      col = "red", lwd = 2, xlab = "")
 axis(1, at = 1:2, labels = c("KCDE", "SARIMA"), cex.axis = 1)
 axis(2); box()
-lines(c(0.5*mean(scores_kcde_0.2$averaged_width_pi),
-        0.5*mean(scores_sarima_0.2$averaged_width_pi)),
+lines(c(0.5*mean(scores_kcde_0.2$weighted_width_pi),
+        0.5*mean(scores_sarima_0.2$weighted_width_pi)),
       col = "royalblue1", lwd = 2, type = "h")
 # legend("top", legend = c("penalty for\n non-coverage\n of 80% PI", "average width\n of 80% PI"),
 #        col = c("red", "lightcoral", "royalblue1"), lwd = 2, bty = "n", cex = 1)
@@ -137,20 +146,21 @@ lines(scores_sarima_0.2_1$u.alpha.1, lty = 3)
 
 
 
-plot_ais(scores_kcde_detailed, ylim = c(0, 3), expression(AIS[detailed]))
+plot_ais(scores_kcde_detailed_w, ylim = c(0, 3), expression(AIS^(alpha)))
 legend("top", legend = c("average penalty for non-coverage", "average width of PIs"),
        col = c("red", "royalblue1"), lwd = 2, bty = "n", cex = 1)
 
-plot_ais(scores_sarima_detailed, ylim = c(0, 3), expression(AIS[detailed]))
+plot_ais(scores_sarima_detailed_w, ylim = c(0, 3), expression(AIS^(alpha)))
 
-plot(c(mean(scores_kcde_detailed$averaged_interval_score), mean(scores_sarima_detailed$averaged_interval_score)), type = "h",
+plot(c(mean(scores_kcde_detailed_w$weighted_interval_score),
+       mean(scores_sarima_detailed_w$weighted_interval_score)), type = "h",
      ylim = c(0, 1.5), xlim = c(0.5, 2.5), axes = FALSE,
-     ylab = expression(average~AIS[detailed]),
+     ylab = expression(average~AIS^(alpha)),
      col = "red", lwd = 2, xlab = "")
 axis(1, at = 1:2, labels = c("KCDE", "SARIMA"), cex.axis = 1)
 axis(2); box()
-lines(c(0.5*mean(scores_kcde_detailed$averaged_width_pi),
-        0.5*mean(scores_sarima_detailed$averaged_width_pi)),
+lines(c(0.5*mean(scores_kcde_detailed_w$weighted_width_pi),
+        0.5*mean(scores_sarima_detailed_w$weighted_width_pi)),
       col = "royalblue1", lwd = 2, type = "h")
 # legend("top", legend = c("average penalty for\n non-coverage", "average width\n of PIs"),
 #        col = c("red", "royalblue1"), lwd = 2, bty = "n", cex = 1)

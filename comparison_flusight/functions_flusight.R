@@ -155,17 +155,34 @@ quantile_from_dens <- function(dens, support, p){
   sapply(p, function(p) support[min(which(cumsum(dens) >= p))])
 }
 
+#' evaluate the absolute error (of the median)
+#'
+#' @param dens a vector of probabilities
+#' @param the support underlying the probabilities in dens
+#' @param observed the observed value
+#'
+#' @return the absolute error
+ae <- function(dens, support, observed){
+  m <- quantile_from_dens(dens = dens, support = support, p = 0.5)
+  return(abs(observed - m))
+}
+
 #' evaluate the CRPS:
 #'
 #' @param dens a vector of probabilities
 #' @param observed the observed value
 #' @param support the support underlying the probabilities in dens
+#' @param observed the observed value
 #'
 #' @return the CRPS
 crps <- function(dens, support, observed){
+  steps0 <- diff(support)
+  if(max(steps0) - min(steps0) > 0.0001) stop("crps requires equally spaced support vector.")
+  step <- steps0[1]
+
   cdf <- cumsum(dens)
   cdf_truth <- as.numeric(support >= observed)
-  crps <- sum((cdf - cdf_truth)^2)*0.1 # 0.1 is the bin width
+  crps <- sum((cdf - cdf_truth)^2)*step # 0.1 is the bin width
   return(crps)
 }
 
@@ -179,7 +196,13 @@ crps <- function(dens, support, observed){
 #'
 #' @return a named list containing the score, penalty terms and widths of PI. If detailed == TRUE
 #' also split up by alpha value
-averaged_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1), detailed = FALSE){
+weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1),
+                                    weights = rep(1, length(alpha)), detailed = FALSE){
+
+  if(length(weights) != length(alpha)){
+    stop("weights and alpha need to be of the same length.")
+  }
+
   alpha_half <- alpha/2
   one_m_alpha_half <- 1 - alpha/2
 
@@ -202,20 +225,21 @@ averaged_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2,
     names(alpha) <- names(alpha_half) <- names(one_m_alpha_half) <- paste0("alpha.", alpha)
 
   # compute combined score:
-  averaged_penalty <- mean(penalties)
-  averaged_width_pi <- mean(widths_pi)
-  averaged_interval_score <- mean(interval_scores)
+  weighted_penalty <- sum(weights*penalties)/sum(weights)
+  weighted_width_pi <- sum(weights*widths_pi)/sum(weights)
+  weighted_interval_score <- sum(weights*interval_scores)/sum(weights)
 
   if(detailed){
     return(list(
       l = l, u = u, observed = observed,
       width_pi = widths_pi, penalty = penalties, interval_score = interval_scores,
-      averaged_penalty = averaged_penalty, averaged_width_pi = averaged_width_pi,
-      averaged_interval_score = averaged_interval_score
+      weights = weights,
+      weighted_penalty = weighted_penalty, weighted_width_pi = weighted_width_pi,
+      weighted_interval_score = weighted_interval_score
     ))
   }else{
-    list(averaged_penalty = averaged_penalty, averaged_width_pi = averaged_width_pi,
-         averaged_interval_score = averaged_interval_score)
+    list(weighted_penalty = weighted_penalty, weighted_width_pi = weighted_width_pi,
+         weighted_interval_score = weighted_interval_score)
   }
 }
 
@@ -290,6 +314,30 @@ crps_table <- function(fc){
   return(results)
 }
 
+
+#' Wrapper function to evaluate absolute error for all rows of a forecast data.frame
+#'
+#' @param fc the forecast list as returned by get_forecasts
+#'
+#' @return a data.frame containing various information on the forecasts and the ae
+
+ae_table <- function(fc){
+  results <- data.frame(model = fc$model,
+                        location = fc$location,
+                        season = fc$season,
+                        year = fc$year,
+                        week = fc$week,
+                        target = fc$target,
+                        truth = fc$truth,
+                        ae = NA)
+
+  for(i in 1:nrow(fc$forecast)){
+    results$ae[i] <- ae(dens = fc$forecast[i, ], observed = fc$truth[i],
+                            support = fc$support)
+  }
+  return(results)
+}
+
 #' Wrapper function to evaluate logS for all rows of a forecast data.frame
 #'
 #' @param fc the forecast list as returned by get_forecasts
@@ -320,15 +368,16 @@ log_score_table <- function(fc, truncate = -10, tolerance = 0){
 
 
 
-#' Wrapper function to evaluate averaged_interval score for all rows of a forecast data.frame
+#' Wrapper function to evaluate weighted_interval score for all rows of a forecast data.frame
 #'
 #' @param fc the forecast list as returned by get_forecasts
 #' @param alpha a vector pf probabilities. The score the average of the interval
 #' score of the (1 - alpha)x100% prediction intervals
 #'
-#' @return a data.frame containing various information on the forecasts and the averaged_and_interval_score
+#' @return a data.frame containing various information on the forecasts and the weighted_and_interval_score
 #'
-averaged_interval_score_table <- function(fc, alpha = c(0.1, 0.2, 0.5, 1), detailed = FALSE){
+weighted_interval_score_table <- function(fc, alpha = c(0.1, 0.2, 0.5, 1),
+                                          weights = rep(1, length(alpha)), detailed = FALSE){
   results <- data.frame(model = fc$model,
                         location = fc$location,
                         season = fc$season,
@@ -338,16 +387,18 @@ averaged_interval_score_table <- function(fc, alpha = c(0.1, 0.2, 0.5, 1), detai
                         truth = fc$truth)
 
   # evaluate for first row and initialize columns:
-  temp <- averaged_interval_score(dens = fc$forecast[1, ],  support = fc$support,
-                              observed = fc$truth[1], alpha = alpha, detailed = detailed)
+  temp <- weighted_interval_score(dens = fc$forecast[1, ],  support = fc$support,
+                              observed = fc$truth[1], alpha = alpha, weights = weights,
+                              detailed = detailed)
   results[, names(unlist(temp))] <- NA
   results[1 , names(unlist(temp))] <- unlist(temp)
 
 
   # evaluate remaining rows:
   for(i in 2:nrow(fc$forecast)){
-    temp <- averaged_interval_score(dens = fc$forecast[i, ],  support = fc$support,
-                                observed = fc$truth[i], alpha = alpha, detailed = detailed)
+    temp <- weighted_interval_score(dens = fc$forecast[i, ],  support = fc$support,
+                                observed = fc$truth[i], alpha = alpha, weights = weights,
+                                detailed = detailed)
     results[i, names(unlist(temp))] <- unlist(temp)
   }
   return(results)
