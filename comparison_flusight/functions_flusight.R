@@ -215,30 +215,37 @@ weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2,
   widths_pi <- u - l
 
   # compute penalties:
-  penalties <- 2/alpha*pmax(0, observed - u) - 2/alpha*pmin(0, observed - l)
+  penalties_l <- 2/alpha*pmax(0, l - observed)
+  penalties_u <- 2/alpha*pmax(0, observed - u)
 
   # compute interval scores at different levels:
-  interval_scores <- widths_pi + penalties
+  interval_scores <- widths_pi + penalties_l + penalties_u
 
   # name vectors
-  names(l) <- names(u) <- names(widths_pi) <- names(penalties) <- names(interval_scores) <-
-    names(alpha) <- names(alpha_half) <- names(one_m_alpha_half) <- paste0("alpha.", alpha)
+  names(l) <- names(u) <- names(widths_pi) <- names(penalties_l) <- names(penalties_u) <-
+    names(interval_scores) <- names(alpha) <- names(alpha_half) <-
+    names(one_m_alpha_half) <- paste0("alpha.", alpha)
 
   # compute combined score:
-  weighted_penalty <- sum(weights*penalties)/sum(weights)
+  weighted_penalty_l <- sum(weights*penalties_l)/sum(weights)
+  weighted_penalty_u <- sum(weights*penalties_u)/sum(weights)
   weighted_width_pi <- sum(weights*widths_pi)/sum(weights)
   weighted_interval_score <- sum(weights*interval_scores)/sum(weights)
 
   if(detailed){
     return(list(
       l = l, u = u, observed = observed,
-      width_pi = widths_pi, penalty = penalties, interval_score = interval_scores,
-      weights = weights,
-      weighted_penalty = weighted_penalty, weighted_width_pi = weighted_width_pi,
+      width_pi = widths_pi, penalty_l = penalties_l, penalty_u = penalties_u,
+      interval_score = interval_scores, weights = weights,
+      weighted_penalty_l = weighted_penalty_l,
+      weighted_penalty_u = weighted_penalty_u,
+      weighted_width_pi = weighted_width_pi,
       weighted_interval_score = weighted_interval_score
     ))
   }else{
-    list(weighted_penalty = weighted_penalty, weighted_width_pi = weighted_width_pi,
+    list(weighted_penalty_l = weighted_penalty_l,
+         weighted_penalty_u = weighted_penalty_u,
+         weighted_width_pi = weighted_width_pi,
          weighted_interval_score = weighted_interval_score)
   }
 }
