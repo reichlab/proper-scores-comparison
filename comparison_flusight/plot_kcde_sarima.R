@@ -44,7 +44,7 @@ scores_sarima_detailed_w <- weighted_interval_score_table(sarima, alpha = alpha_
 
 
 # # plotting functions:
-# plot_wis_0.2_1 <- function(fc, ylim = c(0, max(fc$ais)), ylab = expression(AIS[list(0, 0.2)]), ...){
+# plot_wis_0.2_1 <- function(fc, ylim = c(0, max(fc$wis)), ylab = expression(WIS[list(0, 0.2)]), ...){
 #   plot(0.5*(fc$penalty.alpha.1 + fc$penalty.alpha.0.2 + fc$width_pi.alpha.0.2),
 #        xlab = "week of season", lwd = 2, type = "h",
 #        col = "red", ylim = ylim, ylab = ylab, ...)
@@ -53,7 +53,7 @@ scores_sarima_detailed_w <- weighted_interval_score_table(sarima, alpha = alpha_
 #   abline(h = 0)
 # }
 
-plot_wis <- function(fc, ylim = c(0, max(fc$ais)), ylab = "AIS", ...){
+plot_wis <- function(fc, ylim = c(0, max(fc$wis)), ylab = "WIS", ...){
   plot((fc$weighted_interval_score),
        xlab = "week of season", lwd = 2, type = "h",
        col = "red", ylim = ylim, ylab = ylab, ...)
@@ -126,23 +126,23 @@ points(sarima$truth, pch = 16, cex = cex.p)
 lines(scores_sarima_0.2_1$u.alpha.1, lty = 3)
 
 #------------------------------------
-# Plot for AIS with alpha = c(0.02, 0.05, 0.1, ..., 0.9)
+# Plot for WIS with alpha = c(0.02, 0.05, 0.1, ..., 0.9)
 
 
 
 
-plot_wis(scores_kcde_detailed_w, ylim = c(0, 6), expression(AIS^(alpha)))
+plot_wis(scores_kcde_detailed_w, ylim = c(0, 2), expression(WIS))
 legend("top", legend = c("weighted penalty for exceedance of upper limit",
                          "weighted width of PIs",
                          "weighted penalty for falling below lower limit"),
        col = c("red", "royalblue1", "orange"), lwd = 2, bty = "n", cex = 0.9)
 
-plot_wis(scores_sarima_detailed_w, ylim = c(0, 6), expression(AIS^(alpha)))
+plot_wis(scores_sarima_detailed_w, ylim = c(0, 2), expression(WIS))
 
 plot(c(mean(scores_kcde_detailed_w$weighted_interval_score),
        mean(scores_sarima_detailed_w$weighted_interval_score)), type = "h",
-     ylim = c(0, 1.5), xlim = c(0.5, 2.5), axes = FALSE,
-     ylab = expression(average~AIS^(alpha)),
+     ylim = c(0, 0.5), xlim = c(0.5, 2.5), axes = FALSE,
+     ylab = expression(average~WIS),
      col = "red", lwd = 2, xlab = "")
 axis(1, at = 1:2, labels = c("KCDE", "SARIMA"), cex.axis = 1)
 axis(2); box()
@@ -158,5 +158,9 @@ dev.off()
 
 # numbers for text:
 
-1 - mean(scores_sarima_0.2$penalty.alpha.0.2 > 0)
-1 - mean(scores_kcde_0.2$penalty.alpha.0.2 > 0)
+1 - mean(scores_sarima_0.2$penalty_u.alpha + scores_sarima_0.2$penalty_l.alpha> 0)
+1 - mean(scores_kcde_0.2$penalty_u.alpha.0.2 + scores_kcde_0.2$penalty_l.alpha.0.2 > 0)
+
+
+mean(scores_sarima_detailed_w$weighted_interval_score)
+mean(scores_kcde_detailed_w$weighted_interval_score)

@@ -78,8 +78,10 @@ for(model in models){
 
         # evaluate and add weighted_interval_score for alpha = 0.2
         miS_temp_0.2 <- weighted_interval_score_table(fc_temp, alpha = 0.2, detailed = FALSE, weights = 1)
-        scores_temp[, paste0(c("weighted_penalty", "weighted_width_pi", "weighted_interval_score"), "_0.2")] <-
-          miS_temp_0.2[, c("weighted_penalty", "weighted_width_pi", "weighted_interval_score")]
+        scores_temp[, paste0(c("weighted_penalty_l", "weighted_penalty_u",
+                               "weighted_width_pi", "weighted_interval_score"), "_0.2")] <-
+          miS_temp_0.2[, c("weighted_penalty_l", "weighted_penalty_u",
+                           "weighted_width_pi", "weighted_interval_score")]
 
         # # evaluate and add weighted_interval_score for alpha = 0.2 and 1, i.e. including 2*AE
         # miS_temp_0.2_1 <- weighted_interval_score_table(fc_temp, alpha = c(0.2, 1),
@@ -90,14 +92,18 @@ for(model in models){
         # evaluate and add unweighted detailed score:
         miS_temp_detailed_u <- weighted_interval_score_table(fc_temp, alpha = alpha_detailed,
                                                              weights = rep(1, length(alpha_detailed)), detailed = FALSE)
-        scores_temp[, paste0(c("weighted_penalty", "weighted_width_pi", "weighted_interval_score"), "_detailed_u")] <-
-          miS_temp_detailed_u[, c("weighted_penalty", "weighted_width_pi", "weighted_interval_score")]
+        scores_temp[, paste0(c("weighted_penalty_l", "weighted_penalty_u",
+                               "weighted_width_pi", "weighted_interval_score"), "_detailed_u")] <-
+          miS_temp_detailed_u[, c("weighted_penalty_l", "weighted_penalty_u",
+                                  "weighted_width_pi", "weighted_interval_score")]
 
         # evaluate detailed score with alpha as weights:
         miS_temp_detailed_w <- weighted_interval_score_table(fc_temp, alpha = alpha_detailed,
-                                                             weights = alpha_detailed, detailed = FALSE)
-        scores_temp[, paste0(c("weighted_penalty", "weighted_width_pi", "weighted_interval_score"), "_detailed_w")] <-
-          miS_temp_detailed_w[, c("weighted_penalty", "weighted_width_pi", "weighted_interval_score")]
+                                                             weights = alpha_detailed/2, detailed = FALSE)
+        scores_temp[, paste0(c("weighted_penalty_l", "weighted_penalty_u",
+                               "weighted_width_pi", "weighted_interval_score"), "_detailed_w")] <-
+          miS_temp_detailed_w[, c("weighted_penalty_l", "weighted_penalty_u",
+                                  "weighted_width_pi", "weighted_interval_score")]
 
         # evaluate and add crps
         crps_temp <- crps_table(fc_temp)
@@ -172,7 +178,7 @@ for(season in c("2016/2017")){
 
 
 
-custom_scatter <- function(score1, score2, ...){
+custom_scatter <- function(score1, score2, show_diag = FALSE,...){
   x <- rowMeans(summary_results$`2016/2017`[[score1]])
   y <- rowMeans(summary_results$`2016/2017`[[score2]])
 
@@ -180,93 +186,62 @@ custom_scatter <- function(score1, score2, ...){
                  rgb(0.9, 0.6, 0, alpha = 0.85),
                  rgb(0.2, 0.2, 0.9, alpha = 0.85))
 
-  plot(x, y,
-       pch = 16, cex = 0.8, col = cols, ...)
-  legend("bottomleft", paste("corr:", round(cor(x,y), 2)), bty = "n")
+  plot(x, y, col = NA, ...)
+  if(show_diag) abline(0:1, col = "lightgrey")
+  points(x, y, col = cols, pch = 16, cex = 0.8)
+  legend("bottomright", paste("corr:", round(cor(x,y), 2)), bty = "n")
 }
 
-yl <- c(0, 7)
-yl2 <- c(0, 4)
+yl_is <- c(0, 8)
+yl_wis <- c(0, 1)
 
 pdf("comparison_flusight/score_comparison.pdf", width = 7, height = 10)
-par(mfrow = c(6, 3), las = 1, mar = c(4, 4.5, 1.5, 0.5))
+par(mfrow = c(5, 2), las = 1, mar = c(4, 4.5, 1.5, 0.5))
 
 # row for log score:
 custom_scatter("logS", "weighted_interval_score_0.2",
                xlab = "logS", ylab = expression(IS[0.2]),
-               ylim = yl)
-
-custom_scatter("logS", "weighted_interval_score_detailed_u",
-               xlab = "logS", ylab = expression(WIS^(1)),
-               ylim = yl)
+               ylim = yl_is)
 
 custom_scatter("logS", "weighted_interval_score_detailed_w",
-               xlab = "logS", ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
+               xlab = "logS", ylab = expression(WIS),
+               ylim = yl_wis)
 
 
 # row for MBlogS:
 custom_scatter("MBlogS", "weighted_interval_score_0.2",
                xlab = "MBlogS", ylab = expression(IS[0.2]),
-               ylim = yl)
-
-custom_scatter("MBlogS", "weighted_interval_score_detailed_u",
-               xlab = "MBlogS", ylab = expression(WIS^(1)),
-               ylim = yl)
+               ylim = yl_is)
 
 custom_scatter("MBlogS", "weighted_interval_score_detailed_w",
-               xlab = "MBlogS", ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
+               xlab = "MBlogS", ylab = expression(WIS),
+               ylim = yl_wis)
 
 
 # row for CRPS:
 custom_scatter("crps", "weighted_interval_score_0.2",
                xlab = "CRPS", ylab = expression(IS[0.2]),
-               ylim = yl)
-
-custom_scatter("crps", "weighted_interval_score_detailed_u",
-               xlab = "CRPS", ylab = expression(WIS^(1)),
-               ylim = yl)
+               ylim = yl_is, xlim = yl_wis)
 
 custom_scatter("crps", "weighted_interval_score_detailed_w",
-               xlab = "CRPS", ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
+               xlab = "CRPS", ylab = expression(WIS),
+               ylim = yl_wis, xlim = yl_wis, show_diag = TRUE)
 
 # row for AE:
 custom_scatter("ae", "weighted_interval_score_0.2",
                xlab = "AE", ylab = expression(IS[0.2]),
-               ylim = yl)
-
-custom_scatter("ae", "weighted_interval_score_detailed_u",
-               xlab = "AE", ylab = expression(WIS^(1)),
-               ylim = yl)
+               ylim = yl_is, xlim = yl_wis)
 
 custom_scatter("ae", "weighted_interval_score_detailed_w",
-               xlab = "AE", ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
+               xlab = "AE", ylab = expression(WIS),
+               ylim = yl_wis, xlim = yl_wis, show_diag = TRUE)
 
 # row for IS:
 plot(NULL, xlim = 0:1, ylim = 0:1, axes = FALSE, xlab = "", ylab = "")
 
-custom_scatter("weighted_interval_score_0.2", "weighted_interval_score_detailed_u",
-               xlab = expression(IS[0.2]), ylab = expression(WIS^(1)),
-               ylim = yl)
-
 custom_scatter("weighted_interval_score_0.2", "weighted_interval_score_detailed_w",
-               xlab = expression(IS[0.2]), ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
-
-# row for WIS with equal weighting:
-plot(NULL, xlim = 0:1, ylim = 0:1, axes = FALSE, xlab = "", ylab = "")
-legend("center", col = c(rgb(0.9, 0.6, 0, alpha = 0.8), rgb(0.2, 0.2, 0.9, alpha = 0.85)),
-       legend = c("FluOutlook models", "other models"), pch = 16)
-
-plot(NULL, xlim = 0:1, ylim = 0:1, axes = FALSE, xlab = "", ylab = "")
-
-custom_scatter("weighted_interval_score_detailed_u", "weighted_interval_score_detailed_w",
-               xlab = expression(WIS^(1)), ylab = expression(WIS^(alpha)),
-               ylim = yl/2)
-
+               xlab = expression(IS[0.2]), ylab = expression(WIS),
+               ylim = yl_wis, xlim = yl_is)
 
 
 dev.off()

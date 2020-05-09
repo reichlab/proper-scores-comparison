@@ -4,7 +4,7 @@ source("comparison_flusight/functions_flusight.R")
 # functions to evaluate logS, CRPS and WIS for neg bin forecasts:
 logS_nb <- function(X, mu, size) dnbinom(X, mu = mu, size = size, log = TRUE)
 
-weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = rep(1, length(alpha))){
+weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = alpha/2){
   sapply(vect_observed, function(dens, support, obs, alpha, weights){
     weighted_interval_score(dens = dens, support = support,
                             obs = obs, alpha = alpha,
@@ -20,11 +20,19 @@ crps_vect <- function(dens, support, vect_observed){
   )
 }
 
+log_score_vect <- function(dens, support, vect_observed, tolerance = 0, truncate = -10){
+  sapply(vect_observed, function(dens, support, obs, alpha, tolerance, truncate){
+    log_score(dens = dens, support = support, observed = obs,
+              tolerance = tolerance, truncate = truncate)
+  }, dens = dens, support = support, tolerance = tolerance, truncate = truncate
+  )
+}
+
 # Specify values for example:
 alpha.a <- 0.2
 alpha.b <- c(0.2, 1)
-alpha.c <- c(0.02, 0.05, 1:9/10)
-alpha.d <- alpha.c
+alpha.c <- c(0.1, 0.4, 0.7, 1)
+alpha.d <- c(0.02, 0.05, 1:9/10)
 
 supp <- 1:300 # support
 
@@ -40,17 +48,16 @@ quantiles_F.d <- qnbinom(c(alpha.c/2, 1 - alpha.d/2), mu = mu_F, size = size_F)
 
 
 # compute scores:
-logS_F <- logS_nb(supp, mu_F, size_F)
+logS_F <- log_score_vect(dens = dens_F, support = supp, vect_observed = supp, truncate = -100)
+MBlogS_F <- log_score_vect(dens = dens_F, support = supp, vect_observed = supp, tolerance = 5)
 crps_F <- crps_vect(dens = dens_F, support = supp, vect_observed = supp)
 ae_F <- ae(dens = dens_F, support = supp, observed = supp)
 
-WIS_F.a <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.a)
-WIS_F.b <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.b,
-                                        weights = rep(1, length(alpha.b)))
-WIS_F.c <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.c,
-                                        weights = rep(1, length(alpha.c)))
-WIS_F.d <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.d,
-                                        weights = alpha.d)
+WIS_F.a <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.a,
+                                        weights = 1)
+WIS_F.b <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.b)
+WIS_F.c <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.c)
+WIS_F.d <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.d)
 
 
 col_F <- "darkolivegreen3"
@@ -73,19 +80,18 @@ col_G <- rgb(0.8, 0.1, 0.1, 0.5)
 col_G2 <- "darkred"
 
 # compute scores:
-logS_G <- logS_nb(supp, mu_G, size_G)
-crps_G <- crps_vect(supp, mu_F, size_F)
+logS_G <- log_score_vect(dens = dens_G, support = supp, vect_observed = supp, truncate = -100)
+MBlogS_G <- log_score_vect(dens = dens_G, support = supp, vect_observed = supp,
+                           tolerance = 5, truncate = -100)
+crps_G <- crps_vect(dens = dens_G, support = supp, vect_observed = supp)
 ae_G <- ae(dens = dens_G, support = supp, observed = supp)
 
 
 WIS_G.a <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.a,
                                         weights = 1)
-WIS_G.b <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.b,
-                                        weights = rep(1, length(alpha.b)))
-WIS_G.c <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.c,
-                                        weights = rep(1, length(alpha.c)))
-WIS_G.d <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.d,
-                                        weights = alpha.d)
+WIS_G.b <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.b)
+WIS_G.c <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.c)
+WIS_G.d <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.d)
 
 green_axis <- function(at, labels, cex = 0.7){
   axis(4, at = at, labels = rep("", 4), col = col_F, col.ticks = col_F)
@@ -104,6 +110,7 @@ polygon(400*dens_F - 10, col = col_F, border = col_F)
 green_axis(at = c(-10, -8, -6, -4), labels = (c(-10, -8, -6, -4) + 10)/400)
 lines(logS_F, lwd = 2, col = col_F2)
 
+
 plot(NULL, xlim = c(0, 220), ylim = c(0, 750/4), xlab = "y", ylab = "CRPS")
 polygon(50000*dens_F/4, col = col_F, border = col_F)
 lines(crps_F, lwd = 2, col = col_F2)
@@ -114,7 +121,7 @@ plot(NULL, xlim = c(0, 220), ylim = c(0, 750/4), xlab = "y", ylab = "absolute er
 polygon(50000*dens_F/4, col = col_F, border = col_F)
 lines(ae_F, lwd = 2, col = col_F2)
 abline(v = m_F, lty = 3, col = col_F2)
-text(x = m_F, y = 750/4, labels = c("50%"), bty = "o")
+text(x = m_F, y = 750/4 - 10, labels = c("50%"), bty = "o")
 green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 
 
@@ -123,34 +130,28 @@ plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(IS[0.2]))
 polygon(50000*dens_F, col = col_F, border = col_F)
 abline(v = quantiles_F.a, lty = 3, col = col_F2)
 lines(WIS_F.a, lwd = 2, col = col_F2)
-text(x = quantiles_F.a, y = 750, labels = c("10%", "90%"), bty = "o")
+text(x = quantiles_F.a, y = 750 - 40, labels = c("10%", "90%"), bty = "o")
 green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
 
 
-
-# plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS[list(0,0.2)]^(1)))
-# polygon(50000*dens_F, col = col_F, border = col_F)
-# abline(v = quantiles_F.b, lty = 3, col = col_F2)
-# lines(WIS_F.b, lwd = 2, col = col_F2)
-# text(x = quantiles_F.b, y = 750, labels = c("10%", "50%", "90%", ""), bty = "o")
-# axis(4, at = c(-0, 250, 500, 750), c(-0, 250, 500, 750)/50000,
-#      col = col_F, col.ticks = col_F)
-# mtext(side = 4, text =  "predictive probability", las = 0, line = 4.5,
-#       col = col_F)
-
-
-plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS^(1)))
-polygon(50000*dens_F, col = col_F, border = col_F)
+plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS^"*"))
+polygon(50000*dens_F/4, col = col_F, border = col_F)
 abline(v = quantiles_F.c, lty = 3, col = col_F2)
 lines(WIS_F.c, lwd = 2, col = col_F2)
-green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
+text(x = quantiles_F.c[c(1, 3, 7, 5)], y = 170, labels = c("5%", "35%", "65%", "95%"),
+     bty = "o", cex = 0.8)
+text(x = quantiles_F.c[c(2, 4, 6)], y = 150, labels = c("20%", "50%", "80%"),
+     bty = "o", cex = 0.8)
+
+green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 
 
-plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS^(alpha)))
-polygon(50000*dens_F, col = col_F, border = col_F)
+
+plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS))
+polygon(50000*dens_F/4, col = col_F, border = col_F)
 abline(v = quantiles_F.d, lty = 3, col = col_F2)
 lines(WIS_F.d, lwd = 2, col = col_F2)
-green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
+green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 
 dev.off()
 
@@ -171,7 +172,7 @@ lines(logS_G, lwd = 2, col = col_G2)
 
 abline(v = y, lty = 2)
 
-plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS^(alpha)))
+plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS))
 green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000, cex = 1)
 
 

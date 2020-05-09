@@ -197,7 +197,7 @@ crps <- function(dens, support, observed){
 #' @return a named list containing the score, penalty terms and widths of PI. If detailed == TRUE
 #' also split up by alpha value
 weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1),
-                                    weights = rep(1, length(alpha)), detailed = FALSE){
+                                    weights = alpha/2, detailed = FALSE){
 
   if(length(weights) != length(alpha)){
     stop("weights and alpha need to be of the same length.")
@@ -227,10 +227,10 @@ weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2,
     names(one_m_alpha_half) <- paste0("alpha.", alpha)
 
   # compute combined score:
-  weighted_penalty_l <- sum(weights*penalties_l)/sum(weights)
-  weighted_penalty_u <- sum(weights*penalties_u)/sum(weights)
-  weighted_width_pi <- sum(weights*widths_pi)/sum(weights)
-  weighted_interval_score <- sum(weights*interval_scores)/sum(weights)
+  weighted_penalty_l <- sum(weights*penalties_l)/(length(alpha))
+  weighted_penalty_u <- sum(weights*penalties_u)/(length(alpha))
+  weighted_width_pi <- sum(weights*widths_pi)/(length(alpha))
+  weighted_interval_score <- sum(weights*interval_scores)/(length(alpha))
 
   if(detailed){
     return(list(
