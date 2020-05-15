@@ -126,14 +126,6 @@ green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 
 
 
-plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(IS[0.2]))
-polygon(50000*dens_F, col = col_F, border = col_F)
-abline(v = quantiles_F.a, lty = 3, col = col_F2)
-lines(WIS_F.a, lwd = 2, col = col_F2)
-text(x = quantiles_F.a, y = 750 - 40, labels = c("10%", "90%"), bty = "o")
-green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
-
-
 plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS^"*"))
 polygon(50000*dens_F/4, col = col_F, border = col_F)
 abline(v = quantiles_F.c, lty = 3, col = col_F2)
@@ -145,6 +137,13 @@ text(x = quantiles_F.c[c(2, 4, 6)], y = 150, labels = c("20%", "50%", "80%"),
 
 green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 
+
+plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(IS[0.2]))
+polygon(50000*dens_F, col = col_F, border = col_F)
+abline(v = quantiles_F.a, lty = 3, col = col_F2)
+lines(WIS_F.a, lwd = 2, col = col_F2)
+text(x = quantiles_F.a, y = 750 - 40, labels = c("10%", "90%"), bty = "o")
+green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
 
 
 plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS))

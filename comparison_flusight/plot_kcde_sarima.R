@@ -76,12 +76,13 @@ layout(matrix(c(rep(1, 3), rep(2, 3), rep(3, 2),
                 rep(6, 3), rep(7, 3), rep(8, 2)), nrow = 6, byrow = TRUE))
 
 
-plot_wis(scores_kcde_0.2, ylim = c(0, 6), ylab = expression(IS[0.2]))
+plot_wis(scores_kcde_0.2, ylim = c(0, 6), ylab = expression(IS[0.2]),
+         main = "KCDE")
 legend("top", legend = c("penalty for exceeding upper limit of 80% PI",
                          "width of 80% PI",
                          "penalty for falling below lower limit of 80% PI"),
        col = c("red", "royalblue1", "orange"), lwd = 2, bty = "n", cex = 0.9)
-plot_wis(scores_sarima_0.2, ylim = c(0, 6), ylab = expression(IS[0.2]))
+plot_wis(scores_sarima_0.2, ylim = c(0, 6), ylab = expression(IS[0.2]), main = "SARIMA")
 
 plot(c(mean(scores_kcde_0.2$weighted_interval_score), mean(scores_sarima_0.2$weighted_interval_score)), type = "h",
      ylim = c(0, 1.5), xlim = c(0.5, 2.5), axes = FALSE,
