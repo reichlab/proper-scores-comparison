@@ -44,15 +44,6 @@ scores_sarima_detailed_w <- weighted_interval_score_table(sarima, alpha = alpha_
 
 
 # # plotting functions:
-# plot_wis_0.2_1 <- function(fc, ylim = c(0, max(fc$wis)), ylab = expression(WIS[list(0, 0.2)]), ...){
-#   plot(0.5*(fc$penalty.alpha.1 + fc$penalty.alpha.0.2 + fc$width_pi.alpha.0.2),
-#        xlab = "week of season", lwd = 2, type = "h",
-#        col = "red", ylim = ylim, ylab = ylab, ...)
-#   points(0.5*(fc$width_pi.alpha.0.2 + fc$penalty.alpha.1), lwd = 2, type = "h", col = "lightcoral")
-#   points(0.5*(fc$width_pi.alpha.0.2), lwd = 2, type = "h", col = "royalblue1")
-#   abline(h = 0)
-# }
-
 plot_wis <- function(fc, ylim = c(0, max(fc$wis)), ylab = "WIS", ...){
   plot((fc$weighted_interval_score),
        xlab = "week of season", lwd = 2, type = "h",

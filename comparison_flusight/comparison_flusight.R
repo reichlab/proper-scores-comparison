@@ -17,24 +17,21 @@ fc <- get_forecasts(model = "CU_RHF_SIRS",
                     season = "2016/2017")
 # only really works for week-ahead currently
 
-# evaluate median-and interval score for one week
-# without weighting
-weighted_interval_score(dens = fc$forecast[12, ], observed = fc$truth[12],
+# evaluate weighted interval score for one week
+ind <- 16
+weighted_interval_score(dens = fc$forecast[ind, ], observed = fc$truth[ind],
                         alpha = 1:99/100, support = fc$support, detailed = TRUE,
-                        weights = rep(1, 99))
+                        weights = (1:99/100)/2)
 
-# weighted with alpha
-weighted_interval_score(dens = fc$forecast[12, ], observed = fc$truth[12],
-                        alpha = 1:999/1000, support = fc$support, detailed = TRUE,
-                        weights = 1:999/1000)
-
-log_score(dens = fc$forecast[10, ], observed = fc$truth[10],
+log_score(dens = fc$forecast[ind, ], observed = fc$truth[ind],
           support = fc$support)
 
-crps(dens = fc$forecast[12, ], observed = fc$truth[12], support = fc$support)
+crps(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
+crps2(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
+
 # note that crps = wis with alpha-weights / 4
 
-ae(dens = fc$forecast[12, ], observed = fc$truth[12], support = fc$support)
+ae(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
 
 
 # evaluate all scores:
@@ -177,7 +174,7 @@ for(season in c("2016/2017")){
 }
 
 
-
+# custom function for scatter plot:
 custom_scatter <- function(score1, score2, show_diag = FALSE,...){
   x <- rowMeans(summary_results$`2016/2017`[[score1]])
   y <- rowMeans(summary_results$`2016/2017`[[score2]])

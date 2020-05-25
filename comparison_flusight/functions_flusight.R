@@ -112,40 +112,6 @@ overview_files <- function(filenames){
   overview
 }
 
-
-#'
-#' # evaluate the median-and-interval score
-#'
-#' #' @param dens a vector of probabilities
-#' #' @param observed the observed value
-#' #' @alpha evaluation is based on (1 - alpha)x100% PI
-#' #' @param support the support underlying the probabilities in dens
-#' #'
-#' #' @return a named list containing the score, alpha, lower and upper end of PI,
-#' #' median, observed value, absolute error, width of PI and penalty term
-#'
-#' median_and_interval_score <- function(dens, support, observed, alpha, include_ae = TRUE){
-#'   # get quantiles:
-#'   l <- support[min(which(cumsum(dens) >= alpha/2))]
-#'   m <- support[min(which(cumsum(dens) > 0.5))]
-#'   u <- support[min(which(cumsum(dens) > 1 - alpha/2))]
-#'
-#'   abs_error <- abs(observed - m)
-#'   width_pi <- (u - l)
-#'   penalty <- 2/alpha*pmax(0, observed - u) - 2/alpha*pmin(0, observed - l)
-#'   score <-  as.numeric(include_ae)*2*abs_error + width_pi + penalty
-#'
-#'   return(list(score = score,
-#'               alpha = alpha,
-#'               l = l,
-#'               m = m,
-#'               u = u,
-#'               observed = observed,
-#'               abs_error = abs_error,
-#'               width_pi = width_pi,
-#'               penalty = penalty))
-#' }
-
 #' helper function: get quantile from density
 #'
 #' @param dens the density, i.e. a vector containing probabilities (which sum up to 1)
@@ -269,34 +235,6 @@ log_score <- function(dens, observed, support, truncate = -10, tolerance = 0){
     return(logS)
   }
 }
-
-
-#'
-#' #' Wrapper function to evaluate median_and_interval_score for all rows of a forecast data.frame
-#' #'
-#' #' @param fc the forecast list as returned by get_forecasts
-#' #' @param miS.alpha The CI used in the median_and_interval_score is a (1 - mis.alpha)x100% interval
-#' #'
-#' #' @return a data.frame containing various information on the forecasts and the median_and_interval_scores
-#' median_and_interval_score_table <- function(fc, miS.alpha, include_ae = TRUE){
-#'   results <- data.frame(model = fc$model,
-#'                         location = fc$location,
-#'                         season = fc$season,
-#'                         year = fc$year,
-#'                         week = fc$week,
-#'                         target = fc$target,
-#'                         truth = fc$truth)
-#'
-#'   for(i in 1:nrow(fc$forecast)){
-#'     miS_temp <- median_and_interval_score(dens = fc$forecast[i, ], observed = fc$truth[i],
-#'                         alpha = miS.alpha, support = fc$support, include_ae = include_ae)
-#'     results[i, c("miS.alpha", "miS.l", "miS.m", "miS.u", "miS.abs_error",
-#'                  "miS.width_pi", "miS.penalty", "miS")] <-
-#'       unlist(miS_temp)[c("alpha", "l", "m", "u", "abs_error",
-#'                          "width_pi", "penalty", "score")]
-#'   }
-#'   return(results)
-#' }
 
 #' Wrapper function to evaluate crps for all rows of a forecast data.frame
 #'
