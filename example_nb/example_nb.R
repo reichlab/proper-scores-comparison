@@ -1,9 +1,7 @@
 # get functions written originally for FluSight comparison:
 source("comparison_flusight/functions_flusight.R")
 
-# functions to evaluate logS, CRPS and WIS for neg bin forecasts:
-logS_nb <- function(X, mu, size) dnbinom(X, mu = mu, size = size, log = TRUE)
-
+# functions to evaluate logS, CRPS and WIS with vectors containing different observed values:
 weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = alpha/2){
   sapply(vect_observed, function(dens, support, obs, alpha, weights){
     weighted_interval_score(dens = dens, support = support,
@@ -28,7 +26,7 @@ log_score_vect <- function(dens, support, vect_observed, tolerance = 0, truncate
   )
 }
 
-# Specify values for example:
+# Specify alpha values for example:
 alpha.a <- 0.2
 alpha.b <- c(0.2, 1)
 alpha.c <- c(0.1, 0.4, 0.7, 1)
@@ -36,7 +34,7 @@ alpha.d <- c(0.02, 0.05, 1:9/10)
 
 supp <- 1:300 # support
 
-# "blue" distribution F:
+# define "green" distribution F:
 mu_F <- 60
 size_F <- 4
 dens_F <- dnbinom(supp, mu = mu_F, size = size_F)
@@ -47,7 +45,7 @@ quantiles_F.c <- qnbinom(c(alpha.c/2, 1 - alpha.c/2), mu = mu_F, size = size_F)
 quantiles_F.d <- qnbinom(c(alpha.c/2, 1 - alpha.d/2), mu = mu_F, size = size_F)
 
 
-# compute scores:
+# compute scores for all values in support:
 logS_F <- log_score_vect(dens = dens_F, support = supp, vect_observed = supp, truncate = -100)
 MBlogS_F <- log_score_vect(dens = dens_F, support = supp, vect_observed = supp, tolerance = 5)
 crps_F <- crps_vect(dens = dens_F, support = supp, vect_observed = supp)
@@ -59,13 +57,13 @@ WIS_F.b <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_obse
 WIS_F.c <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.c)
 WIS_F.d <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.d)
 
-
+# define color:
 col_F <- "darkolivegreen3"
 col_F2 <- "darkolivegreen"
 
 
 
-# "red" distribution G:
+# define "red" distribution G:
 mu_G <- 80
 size_G <- 10
 dens_G <- dnbinom(supp, mu = mu_G, size = size_G)
@@ -75,7 +73,7 @@ quantiles_G.b <- qnbinom(c(alpha.b/2, 1 - alpha.b/2), mu = mu_G, size = size_G)
 quantiles_G.c <- qnbinom(c(alpha.c/2, 1 - alpha.c/2), mu = mu_G, size = size_G)
 quantiles_G.d <- qnbinom(c(alpha.d/2, 1 - alpha.c/2), mu = mu_G, size = size_G)
 
-
+# define color:
 col_G <- rgb(0.8, 0.1, 0.1, 0.5)
 col_G2 <- "darkred"
 
@@ -93,6 +91,7 @@ WIS_G.b <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_obse
 WIS_G.c <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.c)
 WIS_G.d <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.d)
 
+# auxiliary function to plot second y-axis in green:
 green_axis <- function(at, labels, cex = 0.7){
   axis(4, at = at, labels = rep("", 4), col = col_F, col.ticks = col_F)
   mtext(labels, side = 4, at = at, line = 1, cex = cex, col = col_F)
@@ -101,6 +100,7 @@ green_axis <- function(at, labels, cex = 0.7){
 }
 
 
+# Plot 1:
 pdf("plots_draft/fig_logS_WIS.pdf", width = 7.5, height = 6)
 par(mfrow = c(3, 2), mar = c(4, 4.5, 1, 8), las = 1)
 yl <- c(0, 750)
@@ -155,7 +155,7 @@ green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 dev.off()
 
 
-
+# Plot 2:
 pdf("plots_draft/fig_comparison_tails.pdf", width = 10, height = 3.2)
 
 y <- 190
@@ -184,14 +184,3 @@ lines(WIS_G.d, lwd = 2, col = col_G2)
 abline(v = y, lty = 2)
 
 dev.off()
-
-# numbers for text:
-logS_F[supp == y]
-logS_G[supp == y]
-
-WIS_F.c[supp == y]
-WIS_G.c[supp == y]
-
-sort(quantiles_F.c, decreasing = TRUE)
-sort(quantiles_G.c, decreasing = TRUE)
-
