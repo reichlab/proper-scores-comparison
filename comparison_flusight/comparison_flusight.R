@@ -145,6 +145,7 @@ models <- models[!models %in% c("Delphi_Uniform")]
 for(season in c("2016/2017")){
   summary_results[[season]] <- list()
   summary_results[[season]]$logS <- summary_results[[season]]$MBlogS <-
+    summary_results[[season]]$neg_logS <- summary_results[[season]]$neg_MBlogS <-
     summary_results[[season]]$crps <- summary_results[[season]]$weighted_interval_score_0.2 <-
     summary_results[[season]]$weighted_interval_score_0.2_1 <-
     summary_results[[season]]$weighted_interval_score_detailed_u <-
@@ -158,7 +159,11 @@ for(season in c("2016/2017")){
                                   gsub(pattern = "/", "-", season), "_", model, ".csv"),
                            stringsAsFactors = FALSE)
     summary_results[[season]]$logS[model, ] <- summarize_scores(all_scores, score = "logS")
+    summary_results[[season]]$neg_logS[model, ] <- -1*summarize_scores(all_scores, score = "logS")
+
     summary_results[[season]]$MBlogS[model, ] <- summarize_scores(all_scores, score = "MBlogS")
+    summary_results[[season]]$neg_MBlogS[model, ] <- -1*summarize_scores(all_scores, score = "MBlogS")
+
     summary_results[[season]]$crps[model, ] <- summarize_scores(all_scores, score = "crps")
     summary_results[[season]]$weighted_interval_score_0.2[model, ] <-
       summarize_scores(all_scores, score = "weighted_interval_score_0.2")
@@ -196,22 +201,22 @@ pdf("comparison_flusight/score_comparison.pdf", width = 7, height = 10)
 par(mfrow = c(5, 2), las = 1, mar = c(4, 4.5, 1.5, 0.5))
 
 # row for log score:
-custom_scatter("logS", "weighted_interval_score_0.2",
-               xlab = "logS", ylab = expression(IS[0.2]),
+custom_scatter("neg_logS", "weighted_interval_score_0.2",
+               xlab = "-logS", ylab = expression(IS[0.2]),
                ylim = yl_is)
 
-custom_scatter("logS", "weighted_interval_score_detailed_w",
-               xlab = "logS", ylab = expression(WIS),
+custom_scatter("neg_logS", "weighted_interval_score_detailed_w",
+               xlab = "-logS", ylab = expression(WIS),
                ylim = yl_wis)
 
 
 # row for MBlogS:
-custom_scatter("MBlogS", "weighted_interval_score_0.2",
-               xlab = "MBlogS", ylab = expression(IS[0.2]),
+custom_scatter("neg_MBlogS", "weighted_interval_score_0.2",
+               xlab = "-MBlogS", ylab = expression(IS[0.2]),
                ylim = yl_is)
 
-custom_scatter("MBlogS", "weighted_interval_score_detailed_w",
-               xlab = "MBlogS", ylab = expression(WIS),
+custom_scatter("neg_MBlogS", "weighted_interval_score_detailed_w",
+               xlab = "-MBlogS", ylab = expression(WIS),
                ylim = yl_wis)
 
 
