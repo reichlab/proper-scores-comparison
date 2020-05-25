@@ -105,10 +105,10 @@ pdf("plots_draft/fig_logS_WIS.pdf", width = 7.5, height = 6)
 par(mfrow = c(3, 2), mar = c(4, 4.5, 1, 8), las = 1)
 yl <- c(0, 750)
 
-plot(NULL, xlim = c(0, 220), ylim = c(-10, -4), xlab = "y", ylab = "logS")
-polygon(400*dens_F - 10, col = col_F, border = col_F)
+plot(NULL, xlim = c(0, 220), ylim = c(4, 10), xlab = "y", ylab = "- logS")
+polygon(400*dens_F + 4, col = col_F, border = col_F)
 green_axis(at = c(-10, -8, -6, -4), labels = (c(-10, -8, -6, -4) + 10)/400)
-lines(logS_F, lwd = 2, col = col_F2)
+lines(-logS_F, lwd = 2, col = col_F2)
 
 
 plot(NULL, xlim = c(0, 220), ylim = c(0, 750/4), xlab = "y", ylab = "CRPS")
@@ -161,22 +161,22 @@ pdf("plots_draft/fig_comparison_tails.pdf", width = 10, height = 3.2)
 y <- 190
 
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 8), las = 1)
-plot(NULL, xlim = c(0, 220), ylim = c(-10, -4), xlab = "y", ylab = "logS")
-polygon(400*dens_F - 10, col = col_F, border = col_F)
-polygon(400*dens_G - 10, col = col_G, border = col_G)
-green_axis(at = c(-10, -8, -6, -4), labels = (c(-10, -8, -6, -4) + 10)/400, cex = 1)
+plot(NULL, xlim = c(0, 220), ylim = c(4, 10), xlab = "y", ylab = "- logS")
+polygon(400*dens_F + 4, col = col_F, border = col_F)
+polygon(400*dens_G + 4, col = col_G, border = col_G)
+green_axis(at = c(10, 8, 6, 4), labels = (c(10, 8, 6, 4) - 4)/400, cex = 1)
 
-lines(logS_F, lwd = 2, col = col_F2)
-lines(logS_G, lwd = 2, col = col_G2)
+lines(-logS_F, lwd = 2, col = col_F2)
+lines(-logS_G, lwd = 2, col = col_G2)
 
 abline(v = y, lty = 2)
 
-plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(WIS))
+plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS))
 green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000, cex = 1)
 
 
-polygon(50000*dens_F, col = col_F, border = col_F)
-polygon(50000*dens_G, col = col_G, border = col_G)
+polygon(50000*dens_F/4, col = col_F, border = col_F)
+polygon(50000*dens_G/4, col = col_G, border = col_G)
 
 lines(WIS_F.d, lwd = 2, col = col_F2)
 lines(WIS_G.d, lwd = 2, col = col_G2)
