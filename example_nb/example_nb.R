@@ -101,13 +101,13 @@ green_axis <- function(at, labels, cex = 0.7){
 
 
 # Plot 1:
-pdf("plots_draft/fig_logS_WIS.pdf", width = 7.5, height = 6)
+pdf("example_nb/fig_logS_WIS.pdf", width = 7.5, height = 6)
 par(mfrow = c(3, 2), mar = c(4, 4.5, 1, 8), las = 1)
 yl <- c(0, 750)
 
 plot(NULL, xlim = c(0, 220), ylim = c(4, 10), xlab = "y", ylab = "- logS")
 polygon(400*dens_F + 4, col = col_F, border = col_F)
-green_axis(at = c(-10, -8, -6, -4), labels = (c(-10, -8, -6, -4) + 10)/400)
+green_axis(at = c(10, 8, 6, 4), labels = (c(10, 8, 6, 4) -4)/400)
 lines(-logS_F, lwd = 2, col = col_F2)
 
 
@@ -156,7 +156,7 @@ dev.off()
 
 
 # Plot 2:
-pdf("plots_draft/fig_comparison_tails.pdf", width = 10, height = 3.2)
+pdf("example_nb/fig_comparison_tails.pdf", width = 10, height = 3.2)
 
 y <- 190
 
@@ -172,7 +172,7 @@ lines(-logS_G, lwd = 2, col = col_G2)
 abline(v = y, lty = 2)
 
 plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS))
-green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000, cex = 1)
+green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000, cex = 1)
 
 
 polygon(50000*dens_F/4, col = col_F, border = col_F)
