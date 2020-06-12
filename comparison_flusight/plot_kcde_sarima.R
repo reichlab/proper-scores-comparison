@@ -156,3 +156,18 @@ dev.off()
 
 mean(scores_sarima_detailed_w$weighted_interval_score)
 mean(scores_kcde_detailed_w$weighted_interval_score)
+
+
+# PIT plots:
+
+pdf("comparison_flusight/pit_kcde_sarima.pdf", width = 8.5, height = 4)
+par(mfrow = 1:2)
+hist(pit_table(kcde, repetitions = 1000), breaks = 0:10/10, probability = TRUE, ylim = c(0, 2),
+     xlab = "PIT", main = "KCDE")
+abline(h = 1, lty = "dotted")
+box()
+hist(pit_table(sarima, repetitions = 1000), breaks = 0:10/10, probability = TRUE, ylim = c(0, 2),
+     xlab = "PIT", main = "SARIMA")
+abline(h  = 1, lty = "dotted")
+box()
+dev.off()

@@ -377,3 +377,34 @@ summarize_scores <- function(tab_scores, score){
   ret <- aggr[, 2]; names(ret) <- aggr[, 1]
   return(ret)
 }
+
+#' Compute ransdomized PIT value for one forecast
+#'
+#' @param dens the discrete density
+#' @param support the associated support
+#' @param observed the observed value
+pit <- function(dens, support, observed){
+  sum(dens[support < observed]) + runif(1, 0, 1)*dens[support == observed]
+}
+
+#' Compute PIT values for forecast list
+#'
+#' @param fc the forecast list as returned by get_forecasts
+#' @param repetitions How many times should the randomized PIT values be computed?
+#'
+#' The "splitting" between different bins in case the probability mass assigned to an observed value
+#' spans two or more bins is done by repeating the randomized procedure many times rather than
+#' computing the values analytically (this was faster to implement)
+pit_table <- function(fc, repetitions = 1000){
+  pit_vals <- NULL
+  for(i in 1:repetitions){
+    temp <- numeric(nrow(fc$forecast))
+    for(j in 1:nrow(fc$forecast)){
+      temp[j] <- pit(dens = fc$forecast[j, ],
+                     support = fc$support,
+                     observed = fc$truth[j])
+    }
+    pit_vals <- c(pit_vals, temp)
+  }
+  return(pit_vals)
+}
