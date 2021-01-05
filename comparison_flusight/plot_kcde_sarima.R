@@ -6,7 +6,7 @@ source("comparison_flusight/functions_flusight.R")
 
 # the path where the FluSight forecasts are stored
 # adapt to your local file system
-path_flusight <- "../../CDClogScore/cdc-flusight-ensemble/"
+path_flusight <- "../cdc-flusight-ensemble/"
 list.files(path_flusight)
 
 # example:
@@ -163,11 +163,11 @@ mean(scores_kcde_detailed_w$weighted_interval_score)
 pdf("comparison_flusight/pit_kcde_sarima.pdf", width = 8.5, height = 4)
 par(mfrow = 1:2)
 hist(pit_table(kcde, repetitions = 1000), breaks = 0:10/10, probability = TRUE, ylim = c(0, 2),
-     xlab = "PIT", main = "KCDE")
+     xlab = "PIT", main = "KCDE", col = "white")
 abline(h = 1, lty = "dotted")
 box()
 hist(pit_table(sarima, repetitions = 1000), breaks = 0:10/10, probability = TRUE, ylim = c(0, 2),
-     xlab = "PIT", main = "SARIMA")
+     xlab = "PIT", main = "SARIMA", col = "white")
 abline(h  = 1, lty = "dotted")
 box()
 dev.off()

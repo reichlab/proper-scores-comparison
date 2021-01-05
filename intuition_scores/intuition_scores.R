@@ -70,7 +70,7 @@ plot(support, is_0.2, col = "steelblue", type = "l", lwd = 2, ylim = c(0, 600),
 abline(v = c(q0.1, q0.9), col = col_F2, lty = 1, lwd = 2)
 # text(105, 50, "}", cex = 5)
 brackets(x1 = q0.9 + 5, x2 = q0.9 + 5, y2 = 0, y1 = q0.9 - q0.1, h = 5)
-text(q0.9 + 25, 40, "l - u")
+text(q0.9 + 25, 40, "u - l")
 lines(c(150, 165, 165), c(is_0.2[151], is_0.2[151], is_0.2[166]))
 text(175, 290, expression(slope == frac(2, alpha)))
 

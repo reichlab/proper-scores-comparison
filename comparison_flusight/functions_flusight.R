@@ -156,48 +156,55 @@ crps <- function(dens, support, observed){
 
 #' @param dens a vector of probabilities
 #' @param observed the observed value
-#' @alpha a vector of probabilities. Evaluation is based on the central (1 - alpha)x100% PIs
+#' @param alpha a vector of probabilities. Evaluation is based on the central (1 - alpha)x100% PIs. 1 needs to be included to include the absolut error
+#' @param weights a vector of weights; if nothing is specified the default of alpha/2 is used for alpha < 1 and 1/2 for the absolute error is used
 #' @param support the support underlying the probabilities in dens
 #' @param detailed Should a more detailed result be returned?
 #'
 #' @return a named list containing the score, penalty terms and widths of PI. If detailed == TRUE
 #' also split up by alpha value
-weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1),
-                                    weights = alpha/2, detailed = FALSE){
+weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2, 0.5, 1), weights = NULL, detailed = FALSE){
 
+  if(is.null(weights)){
+    weights <- alpha/2
+    weights[alpha == 1] <- weights[alpha == 1]/2 # weigh down interval corresponding to absolute error as the IS corresponds to 2 times the AE
+  }
+  
   if(length(weights) != length(alpha)){
     stop("weights and alpha need to be of the same length.")
   }
-
+  
   alpha_half <- alpha/2
   one_m_alpha_half <- 1 - alpha/2
-
+  
   # compute relevant quantiles:
   m <- quantile_from_dens(dens, support, 0.5)
   l <- quantile_from_dens(dens, support, alpha_half)
   u <- quantile_from_dens(dens, support, one_m_alpha_half)
-
+  
   # compute widths of prediction intervals:
   widths_pi <- u - l
-
+  
   # compute penalties:
   penalties_l <- 2/alpha*pmax(0, l - observed)
   penalties_u <- 2/alpha*pmax(0, observed - u)
-
+  
   # compute interval scores at different levels:
   interval_scores <- widths_pi + penalties_l + penalties_u
-
+  
   # name vectors
   names(l) <- names(u) <- names(widths_pi) <- names(penalties_l) <- names(penalties_u) <-
     names(interval_scores) <- names(alpha) <- names(alpha_half) <-
     names(one_m_alpha_half) <- paste0("alpha.", alpha)
-
+  
   # compute combined score:
-  weighted_penalty_l <- sum(weights*penalties_l)/(length(alpha))
-  weighted_penalty_u <- sum(weights*penalties_u)/(length(alpha))
-  weighted_width_pi <- sum(weights*widths_pi)/(length(alpha))
-  weighted_interval_score <- sum(weights*interval_scores)/(length(alpha))
-
+  numerator <- length(alpha) - 0.5*as.numeric(1 %in% alpha) # count ae only half if contained
+  
+  weighted_penalty_l <- sum(weights*penalties_l)/numerator
+  weighted_penalty_u <- sum(weights*penalties_u)/numerator
+  weighted_width_pi <- sum(weights*widths_pi)/numerator
+  weighted_interval_score <- sum(weights*interval_scores)/numerator
+  
   if(detailed){
     return(list(
       l = l, u = u, observed = observed,
@@ -214,6 +221,44 @@ weighted_interval_score <- function(dens, support, observed, alpha = c(0.1, 0.2,
          weighted_width_pi = weighted_width_pi,
          weighted_interval_score = weighted_interval_score)
   }
+}
+
+# second implementation to check:
+weighted_interval_score2 <- function(dens, support, truth){
+  is <- function(l, u, truth, alpha){
+    is <- (u - l) + 2/alpha*(truth <= l)*(l - truth) + 2/alpha*(truth >= u)*(truth - u)
+    return(is)
+  }
+  
+  vals_alpha <- 1 - c(0, 1:9/10, 0.95, 0.98)
+  weights <- vals_alpha/2
+  weights[1] <- weights[1]/2 # weight down ae as otherwise counted twice
+  
+  forecast <- quantile_from_dens(dens, support, c(0.01, 0.025, 1:19/20, 0.975, 0.99))
+  
+  vals_is <- rep(NA, 12)
+  for(i in 1:12){
+    l <- forecast[12 - i + 1]
+    u <- forecast[12 + i - 1]
+    vals_is[i] <- is(l, u, truth, vals_alpha[i])
+  } 
+  return(sum(weights*vals_is)/11.5)
+}
+
+# implementation of linear quantile score to check equivalence:
+sum_quantile_score <- function(dens, support, observed){
+  quantile_score <- function(value, quantile, observed){
+    2*((observed <= value) - quantile)*(value - observed)
+  }
+  
+  quantiles <- c(0.01, 0.025, 1:19/20, 0.975, 0.99)
+  forecast <- quantile_from_dens(dens, support, quantiles)
+
+  qs <- numeric(length(quantiles))
+  for(i in seq_along(quantiles)){
+    qs[i] <- quantile_score(forecast[i], quantiles[i], observed)
+  }
+  return(sum(qs)/23)
 }
 
 # evaluate the logarithmic score

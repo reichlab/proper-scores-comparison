@@ -6,7 +6,7 @@ options(warn = 1)
 
 # the path where the FluSight forecasts are stored
 # adapt to your local file system
-path_flusight <- "../../CDClogScore/cdc-flusight-ensemble/"
+path_flusight <- "../cdc-flusight-ensemble/"
 
 # example:
 # get forecasts from one mode, one location, one target
@@ -19,17 +19,22 @@ fc <- get_forecasts(model = "CU_RHF_SIRS",
 
 # evaluate weighted interval score for one week
 ind <- 16
+
 weighted_interval_score(dens = fc$forecast[ind, ], observed = fc$truth[ind],
-                        alpha = 1:99/100, support = fc$support, detailed = TRUE,
-                        weights = (1:99/100)/2)
+                        alpha = c(0.02, 0.05, 1:10/10), support = fc$support, detailed = TRUE)
+
+# check against two simpler/less detailed implementations:
+weighted_interval_score2(dens = fc$forecast[ind, ], support = fc$support, truth = fc$truth[ind])
+sum_quantile_score(dens = fc$forecast[ind, ], support = fc$support, observed = fc$truth[ind])
 
 log_score(dens = fc$forecast[ind, ], observed = fc$truth[ind],
           support = fc$support)
 
 crps(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
-crps2(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
+# CRPS is approximated to WIS with a low of intervals:
+weighted_interval_score(dens = fc$forecast[ind, ], observed = fc$truth[ind],
+                        alpha = 1:1000/1000, support = fc$support, detailed = FALSE)
 
-# note that crps = wis with alpha-weights / 4
 
 ae(dens = fc$forecast[ind, ], observed = fc$truth[ind], support = fc$support)
 
@@ -48,6 +53,9 @@ target_bounds <- read.csv(paste0(path_flusight, "writing/comparison/data/all-tar
 
 # define alpha levels for detailed mean interval score:
 alpha_detailed <- c(0.02, 0.05, seq(from = 0.1, to = 1, by = 0.1))
+
+# create directory to store results:
+dir.create("comparison_flusight/results")
 
 all_scores <- NULL
 
