@@ -1,14 +1,28 @@
+setwd("/home/johannes/Documents/Projects/proper-scores-comparison/")
+
 # get functions written originally for FluSight comparison:
 source("comparison_flusight/functions_flusight.R")
 
 # functions to evaluate logS, CRPS and WIS with vectors containing different observed values:
-weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = alpha/2){
+
+# old and complicated version for weighted interval score using codes from FluSight example:
+weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = NULL){
   sapply(vect_observed, function(dens, support, obs, alpha, weights){
     weighted_interval_score(dens = dens, support = support,
                             obs = obs, alpha = alpha,
                             weights = weights)$weighted_interval_score
   }, dens = dens, support = support, alpha = alpha, weights = weights
   )
+}
+
+# simpler implementation of weighted interval score without internal computation of decomposition etc.
+weighted_interval_score_vect <- function(quantiles, quantile_levels, vect_observed){
+  # uses formulation (4) which is easier to implement
+  lqs <- function(observed, quantiles, quantile_levels){
+    mean(2*((observed <= quantiles) - quantile_levels)*(quantiles - observed))
+  }
+  sapply(vect_observed, FUN = lqs, quantiles = quantiles,
+         quantile_levels = quantile_levels)
 }
 
 crps_vect <- function(dens, support, vect_observed){
@@ -26,23 +40,32 @@ log_score_vect <- function(dens, support, vect_observed, tolerance = 0, truncate
   )
 }
 
-# Specify alpha values for example:
+# Specify alpha values and corresponding quantile levels for example:
 alpha.a <- 0.2
-alpha.b <- c(0.2, 1)
-alpha.c <- c(0.1, 0.4, 0.7, 1)
-alpha.d <- c(0.02, 0.05, 1:9/10)
+quantile_levels.a <- c(0.1, 0.9)
 
-supp <- 1:300 # support
+alpha.b <- c(0.2, 1)
+quantile_levels.b <- c(0.1, 0.5, 0.9)
+
+alpha.c <- c(0.1, 0.4, 0.7, 1)
+quantile_levels.c <- c(0.05, 0.20, 0.35, 0.5, 0.65, 0.8, 0.95)
+
+alpha.d <- c(0.02, 0.05, 1:10/10)
+quantile_levels.d <- c(0.01, 0.025,1:19/20, 0.975, 0.99)
+
+supp <- 0:300 # support
+
 
 # define "green" distribution F:
 mu_F <- 60
 size_F <- 4
 dens_F <- dnbinom(supp, mu = mu_F, size = size_F)
 m_F <- quantile_from_dens(dens_F, supp, 0.5)
-quantiles_F.a <- qnbinom(c(alpha.a/2, 1 - alpha.a/2), mu = mu_F, size = size_F)
-quantiles_F.b <- qnbinom(c(alpha.b/2, 1 - alpha.b/2), mu = mu_F, size = size_F)
-quantiles_F.c <- qnbinom(c(alpha.c/2, 1 - alpha.c/2), mu = mu_F, size = size_F)
-quantiles_F.d <- qnbinom(c(alpha.c/2, 1 - alpha.d/2), mu = mu_F, size = size_F)
+
+quantiles_F.a <- qnbinom(quantile_levels.a, mu = mu_F, size = size_F)
+quantiles_F.b <- qnbinom(quantile_levels.b, mu = mu_F, size = size_F)
+quantiles_F.c <- qnbinom(quantile_levels.c, mu = mu_F, size = size_F)
+quantiles_F.d <- qnbinom(quantile_levels.d, mu = mu_F, size = size_F)
 
 
 # compute scores for all values in support:
@@ -51,11 +74,19 @@ MBlogS_F <- log_score_vect(dens = dens_F, support = supp, vect_observed = supp, 
 crps_F <- crps_vect(dens = dens_F, support = supp, vect_observed = supp)
 ae_F <- ae(dens = dens_F, support = supp, observed = supp)
 
-WIS_F.a <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.a,
-                                        weights = 1)
-WIS_F.b <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.b)
-WIS_F.c <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.c)
-WIS_F.d <- weighted_interval_score_vect(dens = dens_F, support = supp, vect_observed = supp, alpha = alpha.d)
+WIS_F.a <- weighted_interval_score_vect(quantiles = quantiles_F.a, 
+                                        quantile_levels = quantile_levels.a,
+                                        vect_observed = supp)
+WIS_F.b <- weighted_interval_score_vect(quantiles = quantiles_F.b, 
+                                        quantile_levels = quantile_levels.b,
+                                        vect_observed = supp)
+WIS_F.c <- weighted_interval_score_vect(quantiles = quantiles_F.c, 
+                                        quantile_levels = quantile_levels.c,
+                                        vect_observed = supp)
+WIS_F.d <- weighted_interval_score_vect(quantiles = quantiles_F.d, 
+                                        quantile_levels = quantile_levels.d,
+                                        vect_observed = supp)
+
 
 # define color:
 col_F <- "darkolivegreen3"
@@ -68,10 +99,10 @@ mu_G <- 80
 size_G <- 10
 dens_G <- dnbinom(supp, mu = mu_G, size = size_G)
 m_G <- quantile_from_dens(dens_G, supp, 0.5)
-quantiles_G.a <- qnbinom(c(alpha.a/2, 1 - alpha.a/2), mu = mu_G, size = size_G)
-quantiles_G.b <- qnbinom(c(alpha.b/2, 1 - alpha.b/2), mu = mu_G, size = size_G)
-quantiles_G.c <- qnbinom(c(alpha.c/2, 1 - alpha.c/2), mu = mu_G, size = size_G)
-quantiles_G.d <- qnbinom(c(alpha.d/2, 1 - alpha.c/2), mu = mu_G, size = size_G)
+quantiles_G.a <- qnbinom(quantile_levels.a, mu = mu_G, size = size_G)
+quantiles_G.b <- qnbinom(quantile_levels.b, mu = mu_G, size = size_G)
+quantiles_G.c <- qnbinom(quantile_levels.c, mu = mu_G, size = size_G)
+quantiles_G.d <- qnbinom(quantile_levels.d, mu = mu_G, size = size_G)
 
 # define color:
 col_G <- rgb(0.8, 0.1, 0.1, 0.5)
@@ -85,11 +116,18 @@ crps_G <- crps_vect(dens = dens_G, support = supp, vect_observed = supp)
 ae_G <- ae(dens = dens_G, support = supp, observed = supp)
 
 
-WIS_G.a <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.a,
-                                        weights = 1)
-WIS_G.b <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.b)
-WIS_G.c <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.c)
-WIS_G.d <- weighted_interval_score_vect(dens = dens_G, support = supp, vect_observed = supp, alpha = alpha.d)
+WIS_G.a <- weighted_interval_score_vect(quantiles = quantiles_G.a, 
+                                        quantile_levels = quantile_levels.a,
+                                        vect_observed = supp)
+WIS_G.b <- weighted_interval_score_vect(quantiles = quantiles_G.b, 
+                                        quantile_levels = quantile_levels.b,
+                                        vect_observed = supp)
+WIS_G.c <- weighted_interval_score_vect(quantiles = quantiles_G.c, 
+                                        quantile_levels = quantile_levels.c,
+                                        vect_observed = supp)
+WIS_G.d <- weighted_interval_score_vect(quantiles = quantiles_G.d, 
+                                        quantile_levels = quantile_levels.d,
+                                        vect_observed = supp)
 
 # auxiliary function to plot second y-axis in green:
 green_axis <- function(at, labels, cex = 0.7){
@@ -130,7 +168,7 @@ plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS^"*")
 polygon(50000*dens_F/4, col = col_F, border = col_F)
 abline(v = quantiles_F.c, lty = 3, col = col_F2)
 lines(WIS_F.c, lwd = 2, col = col_F2)
-text(x = quantiles_F.c[c(1, 3, 7, 5)], y = 170, labels = c("5%", "35%", "65%", "95%"),
+text(x = quantiles_F.c, y = 170, labels = c("5%", "35%", "65%", "95%"),
      bty = "o", cex = 0.8)
 text(x = quantiles_F.c[c(2, 4, 6)], y = 150, labels = c("20%", "50%", "80%"),
      bty = "o", cex = 0.8)
@@ -141,7 +179,7 @@ green_axis(at = c(-0, 250, 500, 750)/4, labels = c(-0, 250, 500, 750)/50000)
 plot(NULL, xlim = c(0, 220), ylim = yl, xlab = "y", ylab = expression(IS[0.2]))
 polygon(50000*dens_F, col = col_F, border = col_F)
 abline(v = quantiles_F.a, lty = 3, col = col_F2)
-lines(WIS_F.a, lwd = 2, col = col_F2)
+lines(2/alpha.a*WIS_F.a, lwd = 2, col = col_F2)
 text(x = quantiles_F.a, y = 750 - 40, labels = c("10%", "90%"), bty = "o")
 green_axis(at = c(-0, 250, 500, 750), labels = c(-0, 250, 500, 750)/50000)
 
