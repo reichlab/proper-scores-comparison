@@ -104,7 +104,7 @@ for(model in models){
 
         # evaluate detailed score with alpha as weights:
         miS_temp_detailed_w <- weighted_interval_score_table(fc_temp, alpha = alpha_detailed,
-                                                             weights = alpha_detailed/2, detailed = FALSE)
+                                                             weights = NULL, detailed = FALSE)
         scores_temp[, paste0(c("weighted_penalty_l", "weighted_penalty_u",
                                "weighted_width_pi", "weighted_interval_score"), "_detailed_w")] <-
           miS_temp_detailed_w[, c("weighted_penalty_l", "weighted_penalty_u",

@@ -367,7 +367,7 @@ log_score_table <- function(fc, truncate = -10, tolerance = 0){
 #' @return a data.frame containing various information on the forecasts and the weighted_and_interval_score
 #'
 weighted_interval_score_table <- function(fc, alpha = c(0.1, 0.2, 0.5, 1),
-                                          weights = rep(1, length(alpha)), detailed = FALSE){
+                                          weights = NULL, detailed = FALSE){
   results <- data.frame(model = fc$model,
                         location = fc$location,
                         season = fc$season,
