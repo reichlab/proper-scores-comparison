@@ -168,7 +168,7 @@ plot(NULL, xlim = c(0, 220), ylim = yl/4, xlab = "y", ylab = expression(WIS^"*")
 polygon(50000*dens_F/4, col = col_F, border = col_F)
 abline(v = quantiles_F.c, lty = 3, col = col_F2)
 lines(WIS_F.c, lwd = 2, col = col_F2)
-text(x = quantiles_F.c, y = 170, labels = c("5%", "35%", "65%", "95%"),
+text(x = quantiles_F.c[c(1, 3, 5, 7, 9, 11)], y = 170, labels = c("5%", "35%", "65%", "95%"),
      bty = "o", cex = 0.8)
 text(x = quantiles_F.c[c(2, 4, 6)], y = 150, labels = c("20%", "50%", "80%"),
      bty = "o", cex = 0.8)
