@@ -5,17 +5,7 @@ source("comparison_flusight/functions_flusight.R")
 
 # functions to evaluate logS, CRPS and WIS with vectors containing different observed values:
 
-# old and complicated version for weighted interval score using codes from FluSight example:
-weighted_interval_score_vect <- function(dens, support, vect_observed, alpha, weights = NULL){
-  sapply(vect_observed, function(dens, support, obs, alpha, weights){
-    weighted_interval_score(dens = dens, support = support,
-                            obs = obs, alpha = alpha,
-                            weights = weights)$weighted_interval_score
-  }, dens = dens, support = support, alpha = alpha, weights = weights
-  )
-}
-
-# simpler implementation of weighted interval score without internal computation of decomposition etc.
+# simple implementation of weighted interval score without internal computation of decomposition etc.
 weighted_interval_score_vect <- function(quantiles, quantile_levels, vect_observed){
   # uses formulation (4) which is easier to implement
   lqs <- function(observed, quantiles, quantile_levels){
